@@ -1,0 +1,196 @@
+---
+title: "Entrega Final de curso"
+format: html
+---
+
+```{r}
+library(tidyverse)
+library(tidymodels)
+library(agua)
+library(h2o)
+library(readxl)
+library(knitr)
+library(rpart.plot)
+library(yardstick)
+library(tidymodels)
+library(xgboost)
+library(lightgbm)
+library(baguette) 
+library(bonsai)
+
+df <- read_excel("trayectorias.xlsx") %>%
+  select(-termina, gol, tiro, termina_tiro, participa_golero) %>%
+  mutate(exito = factor(exito, levels = c(1, 0), labels = c("1", "0")))
+df_split <- initial_split(df)
+train <- training(df_split)
+test <- testing(df_split)
+```
+
+
+```{r}
+log_spec <- logistic_reg() %>%
+  set_engine("glm") %>%
+  set_mode("classification")
+
+tree_spec <- decision_tree(cost_complexity = tune()) %>%
+  set_engine("rpart") %>%
+  set_mode("classification")
+
+lgbm_spec <- boost_tree(trees = tune(), learn_rate = tune()) %>%
+  set_engine("lightgbm") %>%
+  set_mode("classification")
+
+bag_spec <- bag_tree(cost_complexity = tune(), min_n = tune()) %>%
+  set_engine("rpart") %>%
+  set_mode("classification")
+
+df_recipe <- recipe(exito ~ ., data = train) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_dummy(all_nominal_predictors())
+
+cv_folds <- vfold_cv(train, v = 5)
+
+model_workflows <- list(
+  logistic = workflow() %>% add_model(log_spec) %>% add_recipe(df_recipe),
+  tree = workflow() %>% add_model(tree_spec) %>% add_recipe(df_recipe),
+  lgbm = workflow() %>% add_model(lgbm_spec) %>% add_recipe(df_recipe),
+  bag = workflow() %>% add_model(bag_spec) %>% add_recipe(df_recipe))
+
+metrics <- metric_set(accuracy, sens, spec , roc_auc)
+
+results <- lapply(model_workflows, function(workflow) {
+  tune_grid(
+    workflow,
+    resamples = cv_folds,
+    grid = 10, 
+    metrics = metrics)})
+```
+
+```{r}
+best_results <- lapply(results, function(result) {
+  collect_metrics(result) %>%
+    filter(.metric %in% c("accuracy", "sens", "spec" , "roc_auc")) %>%
+    arrange(desc(mean)) %>%
+    group_by(.metric) %>%
+    filter(row_number() == 1) %>% 
+    ungroup()
+})
+
+comparison <- bind_rows(best_results, .id = "model") %>%
+  select(model, .metric, mean, std_err) %>%
+  arrange(model, desc(mean))
+```
+
+### Acuracy
+```{r}
+comparison %>% filter(.metric == "accuracy") %>%
+  ggplot(aes(x = fct_reorder(model, mean), y = mean, fill = model)) +
+  geom_col(position = "dodge") +
+  coord_flip() +
+  labs(x = "Modelo", y = "Acuracy") +
+  theme_minimal() +  
+  geom_text(aes(label = round(mean, 2)), position = position_dodge(width = 0.9), hjust = 1.5, size = 3.5)
+```
+
+
+
+### Sensibilidad
+```{r}
+comparison %>% filter(.metric == "sens") %>%
+  ggplot(aes(x = fct_reorder(model, mean), y = mean, fill = model)) +
+  geom_col(position = "dodge") +
+  coord_flip() +
+  labs(x = "Modelo", y = "Sensibilidad") +
+  theme_minimal() +  
+  geom_text(aes(label = round(mean, 2)), position = position_dodge(width = 0.9), hjust = 1.5, size = 3.5)
+```
+
+### Especificidad
+```{r}
+comparison %>% filter(.metric == "spec") %>%
+  ggplot(aes(x = fct_reorder(model, mean), y = mean, fill = model)) +
+  geom_col(position = "dodge") +
+  coord_flip() +
+  labs(x = "Modelo", y = "Especificidad") +
+  theme_minimal() +  
+  geom_text(aes(label = round(mean, 2)), position = position_dodge(width = 0.9), hjust = 1.5, size = 3.5)
+```
+
+
+### ROC AUC
+```{r}
+comparison %>% filter(.metric == "roc_auc") %>%
+  ggplot(aes(x = fct_reorder(model, mean), y = mean, fill = model)) +
+  geom_col(position = "dodge") +
+  coord_flip() +
+  labs(x = "Modelo", y = "ROC AUC") +
+  theme_minimal() +  
+  geom_text(aes(label = round(mean, 2)), position = position_dodge(width = 0.9), hjust = 1.5, size = 3.5)
+```
+
+
+# H2O
+
+```{r}
+## Cargar las librerías necesarias
+library(tidymodels)
+library(agua)
+library(dplyr)
+library(h2o)
+
+# Iniciar H2O
+h2o_start()
+
+set.seed(123)  # Para reproducibilidad
+split_1 <- initial_split(df, prop = 0.6)
+train_data <- training(split_1)
+temp_data <- testing(split_1)
+split_2 <- initial_split(temp_data, prop = 0.5)
+validation_data <- training(split_2)
+test_data <- testing(split_2)
+
+df_recipe <- recipe(exito ~ ., data = train_data) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  prep()
+
+train_prepped <- bake(df_recipe, new_data = train_data)
+validation_prepped <- bake(df_recipe, new_data = validation_data)
+test_prepped <- bake(df_recipe, new_data = test_data)
+
+train_h2o <- as.h2o(train_prepped)
+validation_h2o <- as.h2o(validation_prepped)
+test_h2o <- as.h2o(test_prepped)
+
+aml <- h2o.automl(
+  y = "exito",
+  training_frame = train_h2o,
+  validation_frame = validation_h2o,
+  max_runtime_secs = 120,
+  seed = 1)
+
+
+````
+
+
+```{r}
+leaderboard = h2o.get_leaderboard(aml)  %>% as.data.frame()
+```
+
+```{r}
+leaderboard <- h2o.get_leaderboard(aml , extra_columns = "ALL") %>%
+  as.data.frame() %>% arrange(desc(auc))  %>% 
+  head(1) %>%
+  mutate(model_id = as.character(model_id))
+```
+
+
+```{r}
+comparison  %>% filter(.metric == "roc_auc")  %>% select(model , mean) %>% rename(modelo = model, auc = mean)  %>% rbind(leaderboard %>% select(algo, auc) %>% rename(modelo = algo, auc = auc))  %>% 
+    ggplot(aes(x = fct_reorder(modelo, auc), y = auc, fill = modelo)) +
+  geom_col(position = "dodge") +
+  coord_flip() +
+  labs(x = "Modelo", y = "ROC AUC") +
+  theme_minimal() +  
+  geom_text(aes(label = round(auc, 3)), position = position_dodge(width = 0.9), hjust = 1.5, size = 3.5)
+```

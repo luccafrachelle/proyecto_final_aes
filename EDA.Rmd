@@ -1,0 +1,391 @@
+---
+title: "Avance"
+author: "Martín Grau Pérez"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(remotes)
+library(devtools)
+library(here)
+library(readxl)
+setwd(here())
+library(StatsBombR)
+library(forcats)
+library(patchwork)
+library(ggcorrplot)
+library(gridExtra)
+
+Matches<-readRDS("partidos_mundial2022.rds")
+Matches_2023<-readRDS("partidos_mundialfem2023.rds")
+d<-readRDS("partidos_mundial_COMPLETO2022.rds") 
+d_mundialfem<-readRDS("data_mundial2023.rds") %>% 
+  mutate(possession_team.name=str_extract(possession_team.name, ".*?(?= Women's)"),
+         team.name=str_extract(team.name, ".*?(?= Women's)"))
+nombres<-read_excel("correccion nombres jugadores.xlsx") %>% select(1,5)
+d<- d %>% 
+  left_join(nombres,by="player.name") %>% 
+  left_join(rename(nombres,pass.recipient.name2=2),by=c("pass.recipient.name"="player.name")) 
+eventos_irrelevantes<-c(5,18,19,24,26,27,34,35,36,40,41)
+
+source("minutos jugados.R")
+source("funciones creadas.R")
+baseM<-read_rds("baseM.rds")
+trayM<-read_rds("trayM.rds")
+baseF<-read_rds("baseF.rds")
+trayF<-read_rds("trayF.rds")
+
+setwd(paste0(here(),"/Mundial SB/reportes"))
+```
+
+## Resumen de la base
+### Eventos 
+Las bases de datos corresponden a los datos de *eventing* proporcionados por la empresa *StatsBomb*, especializada en la recolección y análisis de datos en el mundo del fútbol, de cada uno de los partidos del Mundial masculino disputado en Catar en 2022 y del Mundial femenino disputado en Australia y Nueva Zelanda en 2023 (64 partidos). Dicha base está compuesta por los distintos eventos que se realizaron en el transcurso de cada encuentro y variables asociadas a cada tipo de evento según corresponda (184 variables y 459967 observaciones entre los 2 mundiales). Se considera un evento cada una de las acciones realizadas ya sea por los jugadores (pases, tiros al arco, atajadas, regates, traslados de balón, ...) así como del resto de los actores de un partido (cambios, tarjetas, inicio/final de partido, entre otras). Las posesiones están compuestas por varios de estos tipos de eventos. En este caso, la base de Statsbomb cuenta con 33 eventos distintos, los cuales se detallan en la tabla a continuación 
+
+```{r descr eventos, echo=FALSE}
+data.frame(eventos=unique(d$type.name))
+
+```
+
+
+Algunos de estos eventos no refieren especificamente a situaciones de juego tales como incios y finales de partidos, sustituciones de jugadores, formaciones iniciales, tarjetas mostradas por el juez, cambios tácticos, sueltas neutrales de balón y pausas en el partido ya sea por lesión u otra situación excepcional. Estos eventos no serán tenidos en cuenta en el análisis ya se considera que no aportan nada desde el punto de vista del juego y de las posesiones dentro del mismo. ASIMISMO, SI BIEN REFIEREN A ACCIONES DE JUEGO, TAMBIÉN SE EXCLUYEN OTROS EVENTOS TALES COMO SHIELD, MISCONTROL. 
+Lo mismo haremos con los registros de las tandas de penales (período 5 en la base) que serán excluidos del análisis.
+
+
+En ese sentido se trabajará con las acciones de juego que involucren la pelota o la disputa de ésta. Mayoritariamente tenemos pases pero también se registran traslados con pelota controlada (*Carry*), recepción de balón (*Ball Receipt*), acciones defensivas de presión hacia un rival (*Pressure*), recuperaciones de pelota (*Ball Recovery*), duelos (*Duel*), despejes (*Clearance*), tiros al arco (*Shot*), regates (*Dribble*), atajadas(*Goal Keeper*), entre otros.
+
+Luego de los remates al arco (que determinan los resultados directamente), los pases son el aspecto fundamental de la forma de juego de los equipos por lo que es esperable encontrar que éstos representen la mayor cantidad de registros (30%) y los eventos predominantes en cada posesión (1070 pases en promedio por partido y 6.2 por posesión) independientemente de que estos hayan sido exitosos o no. Los eventos de tipo pases tienen asociados otro tipo de eventos que son los *Ball Receipt* que por lo general se dan cuando los pases efectivamente llegaron a destino, lo único qué nos dice las coordenadas de la cancha dónde se recibieron los distintos pases. VER QUÉ HACER CON ESTOS TIPOS DE EVENTOS. LOS SACAMOS? HAY BALL RECEIPT QUE NO PROVENGAN DE PASES? QUÉ SON? ????
+
+```{r,echo=FALSE,message=FALSE,warning=FALSE}
+# g1<-d %>%  
+#   ggplot()+ geom_bar(aes(x = fct_lump_n(type.name, n = 15) %>% fct_infreq()))+labs(x='tipo evento') 
+
+g2<-d %>%
+ group_by(type.name, match_id) %>%
+ summarise(n = n()) %>%
+ ungroup() %>%
+ group_by(type.name) %>%
+ summarise(mediana = round(median(n))) %>%
+  filter(type.name %in% c("Pass","Ball Receipt*","Carry","Shot","Pressure","Ball Recovery","Duel","Clearance","Block","Goal Keeper")) %>% 
+ #top_n(15, wt = mediana) %>%  
+ mutate(type.name = fct_reorder(type.name, mediana, .desc = TRUE)) %>%
+ ggplot(aes(x = type.name, y = mediana)) + 
+ geom_col() + 
+ labs(x = "tipo evento", y = "mediana por partido")+theme_bw()
+
+g2
+
+d %>%
+  filter(possession_team.name==team.name) %>% 
+ group_by(type.name, match_id,possession) %>%
+ summarise(n = n()) %>%
+ ungroup() %>%
+  filter(type.name %in% c("Pass","Ball Receipt*","Carry")) %>% 
+ #top_n(15, wt = mediana) %>%  
+ mutate(type.name = fct_reorder(type.name, n, .desc = TRUE)) %>%
+ ggplot(aes(x = type.name, y = n)) + 
+ geom_boxplot() 
+
+```
+
+### Variables a utilizar 
+Además de la variable ya mencionada respecto a qué tipo de acción se da en cada jugada tenemos otros tipos de variables. 
+Por una parte, tenemos algunas relativas a cada acción (evento de juego): cuándo y dónde se realiza, qué equipo (y qué jugador) lo realiza, qué equipo tiene la posesión y a qué tipo de secuencia refiere (*play_pattern.name*). Más concretamente, cada acción forma parte de una posesión dentro de cada uno de los 64 partidos a analizar. Estas posesiones son las que queremos estudiar y se definen como los períodos de tiempo en el que un equipo logra establecer el control de la pelota hasta que el rival la recupera y logra asesgurarla. Por ejemplo, puede suceder que haya secuencias en las que un equipo realice acciones dentro de posesiones del equipo rival. Esto se debe a que con esas acciones no logra asegurar la posesión por lo que el identificador correspondiente permanece incambiado. En esta primera instancia del análisis no se tendrán en cuenta este tipo de posesiones, se trabajará únicamente con aquellas en las cuales sólo el equipo *dueño* de esa secuencia realiza las acciones. 
+También puede ocurrir que si bien un equipo no pierde el control de la pelota, el contador de la posesión se reinicie ya que cuando la pelota sale de la cancha, automáticamente se genera una nueva secuencia independientemente del equipo que reanude el juego.
+
+
+```{r resumen vars, echo=FALSE,eval=FALSE}
+d %>% select(!starts_with(unique(d$type.name))) %>%  
+  select(-resultado,-player.name2) %>% 
+  colnames()
+
+```
+
+Por otra parte tenemos distintas características de los distintos tipos de evento según corresponda tales como su éxito o no, los distintos tipos de acciones, distancia, entre otras.
+
+```{r resumen vars eventos, echo=FALSE,eval=FALSE}
+d %>% select(starts_with(unique(d$type.name))) %>%  
+  colnames()
+```
+
+
+En este contexto se buscará estudiar las distintas secuencias de los equipos en cuanto tienen la posesión a su favor (*possession*). En ese sentido, tomando en cuenta ambas copas del mundo tenemos en promedio un poco más de 177 posesiones por partido para el mundial masculino mientras que un poco menos de 193 para el femenino. 
+
+```{r descr pos,echo=FALSE}
+# d %>% mutate(mundial='M') %>% bind_rows(mutate(d_mundialfem,mundial='F')) %>% 
+# filter(period<5 & !type.id %in% eventos_irrelevantes)  %>%
+# group_by(mundial,match_id, possession) %>%
+# summarise() %>% 
+# count(match_id) %>% ungroup() %>% group_by(mundial) %>%
+#summarise(mean(n),median(n),min(n),max(n))
+
+
+
+g3<-d %>% mutate(mundial='M') %>% bind_rows(mutate(d_mundialfem,mundial='F')) %>% 
+    filter(period<5 & !type.id %in% eventos_irrelevantes)  %>%
+    group_by(mundial,match_id, possession) %>%
+    summarise() %>% 
+    count(match_id) %>% ungroup() %>% ggplot()+geom_boxplot(aes(mundial,n))+labs(y='Posesiones por partido',x='Mundial')
+
+```
+
+
+
+
+```{r descr pases,fig.cap="dispersión posesiones y pases por partido según mundial",echo=FALSE,warning=FALSE,message=FALSE}
+g4<-d %>% mutate(mundial='M') %>% bind_rows(mutate(d_mundialfem,mundial='F')) %>% 
+    filter(period<5 & !type.id %in% eventos_irrelevantes & type.id==30)  %>%
+    group_by(mundial,match_id) %>%
+    summarise(n=n()) %>%  ungroup() %>% ggplot()+geom_boxplot(aes(mundial,n))+labs(y='Pases por partido',x='Mundial')
+
+g8<-d %>% mutate(mundial='M') %>% bind_rows(mutate(d_mundialfem,mundial='F')) %>% 
+    filter(period<5 & !type.id %in% eventos_irrelevantes & type.id==43)  %>%
+    group_by(mundial,match_id) %>%
+    summarise(n=n()) %>%  ungroup() %>% ggplot()+geom_boxplot(aes(mundial,n))+labs(y='Carries por partido',x='Mundial')
+
+g3+g4+g8
+
+
+pases_pos_gral<-d %>% mutate(mundial='M') %>% bind_rows(mutate(d_mundialfem,mundial='F')) %>% 
+  filter(period<5 & !type.id %in% eventos_irrelevantes & type.id==30 & 
+           possession_team.name==team.name) %>% 
+  group_by(mundial,match_id, possession) %>%
+  summarise(cantidad_pases = n()) %>% 
+  ungroup() %>% group_by(mundial) %>% 
+  summarise(promedio_pases = mean(cantidad_pases)) 
+
+g5<-d %>% mutate(mundial='M') %>% bind_rows(mutate(d_mundialfem,mundial='F')) %>% 
+    filter(period<5 & !type.id %in% eventos_irrelevantes & possession_team.name==team.name & type.id==30)  %>%
+    group_by(mundial,match_id, possession) %>%
+  summarise(cantidad_pases = n()) %>% 
+  ungroup() %>% 
+  ggplot()+geom_boxplot(aes(mundial,cantidad_pases))+labs(y='Pases por posesión',x='Mundial')+
+  coord_flip()
+
+g6<-d %>% mutate(mundial='M') %>% bind_rows(mutate(d_mundialfem,mundial='F')) %>% 
+    filter(period<5 & !type.id %in% eventos_irrelevantes & possession_team.name==team.name & type.id==30& is.na(pass.outcome.name))  %>%
+    group_by(mundial,match_id) %>%
+  summarise(cantidad_pases = n()) %>% 
+  ungroup() %>% 
+  ggplot()+geom_boxplot(aes(mundial,cantidad_pases))+labs(y='Pases exitosos por partido',x='Mundial')+
+  coord_flip()
+
+g7<-d %>% mutate(mundial='M') %>% bind_rows(mutate(d_mundialfem,mundial='F')) %>% 
+    filter(period<5 & !type.id %in% eventos_irrelevantes & possession_team.name==team.name & type.id==30& is.na(pass.outcome.name))  %>%
+    group_by(mundial,match_id,possession) %>%
+  summarise(cantidad_pases = n()) %>% 
+  ungroup() %>% 
+  ggplot()+geom_boxplot(aes(mundial,cantidad_pases))+labs(y='Pases exitosos por posesión',x='Mundial')+
+  coord_flip()
+g6/g7
+
+```
+
+Además de las variables contenidas originalmente en la base, se crea una nueva que nos indica el resultado del partido desde el punto de vista del equipo que realiza la acción (no el equipo dueño de la posesión). Es decir, si el equipo va ganando, perdiendo o empatando.
+
+
+
+```{r pases por pos y por eq,echo=FALSE,message=FALSE,warning=FALSE}
+d %>% mutate(mundial='M') %>% bind_rows(mutate(d_mundialfem,mundial='F')) %>% 
+    filter(period<5 & !type.id %in% eventos_irrelevantes )  %>%
+    group_by(mundial,match_id,possession) %>%
+    summarise(n=n_distinct(type.id)) %>%  ungroup() %>% ggplot()+geom_boxplot(aes(mundial,n))+labs(y='nro eventos por posesion')
+
+
+```
+
+Por lo tanto, nuestra observaciones pasarán a ser las posesiones y no los distintos eventos. A estos efectos, con la información contenida en los datos de eventing de SB se buscará conformar una base que nos permita describir cada una de estas secuencias para su posterior estudio y clasificación. Para ello, en una primera instancia, no se trabajará con todas las posesiones sino que por simplicidad nos quedaremos únicamente con aquellas posesiones en las cuales las acciones en las mismas son realizadas por el equipos poseedor del balón o, en su defecto, que las acciones del rival no involucren directamente la pelota: acciones de presión, faltas cometidas o recibidas, atajadas del golero y/o jugadores dribleados del conjunto que esta defendiendo (*Dribbled Past*). De esta manera la trayectoria de la pelota se ve únicamente afectada por las acciones realizadas por el equipo que tiene la posesión y no por el rival.
+Nos quedaremos finalmente con 5269 posesiones a nivel masculino y 4706 del mundial femenino para estudiar la trayectoria de la pelota en estas secuencias a través de sus características para su posterior clasificación. 
+
+
+
+
+## Características de las posesiones
+A través de los datos de eventing se generará una nueva base que contenga características de las casi 10000 secuencias a estudiar. La elección de dichas características es un tanto arbitraria pero se entiende que pueden ser de valor o utilidad a la hora de describir o encontrar ciertos patrones o estilos de juego: coordenadas de inicio y fin de la posesión (así como las zonas de inicio y fin), cantidad pases (totales y exitosos), de traslados (totales y exitosos), de tiros y de eventos en general realizados, cantidad de centros, cambios de frente, ingresos al área rival con pelota controlada y pases dentro del área, promedio de avance en el terreno según sea por pases o traslados con pelota controlada, si la jugada es iniciada por el golero, si éste participa o no, si termina en tiro o en gol, o incluso variables del estilo de la velocidad promedio de la posesión cuando los pases y las conducciones con la pelota se realizan hacia adelante. 
+```{r correlaciones, echo=FALSE,message=FALSE,warning=FALSE,fig.cap='Correlaciones de las caracteristicas de las trayectorias'}
+trayectoriasM<-trayM %>% 
+  select(-c(timestamp,segs_corr,type.id,type.name,avance_p,avance_c,player.id,player.name)) %>% 
+  group_by(match_id,possession) %>% 
+  summarise(across(everything(), first)) %>% ungroup() %>% 
+  mutate(prom_av_p=ifelse(is.nan(prom_av_p),0,prom_av_p),
+         prom_av_t=ifelse(is.nan(prom_av_t),0,prom_av_t),
+         vel_media_p=ifelse(is.nan(vel_media_p)|is.infinite(vel_media_p),0,vel_media_p),
+         vel_media_c=ifelse(is.nan(vel_media_c)|is.infinite(vel_media_c),0,vel_media_c))
+trayectoriasF<-trayF %>% 
+  select(-c(timestamp,segs_corr,type.id,type.name,avance_p,avance_c,player.id,player.name)) %>% 
+  group_by(match_id,possession) %>% 
+  summarise(across(everything(), first)) %>% ungroup() %>% 
+  mutate(prom_av_p=ifelse(is.nan(prom_av_p),0,prom_av_p),
+         prom_av_t=ifelse(is.nan(prom_av_t),0,prom_av_t),
+         vel_media_p=ifelse(is.nan(vel_media_p)|is.infinite(vel_media_p),0,vel_media_p),
+         vel_media_c=ifelse(is.nan(vel_media_c)|is.infinite(vel_media_c),0,vel_media_c))
+
+trayectoriasM %>% select(-c(39,42,43)) %>% 
+  rbind(trayectoriasF[,-39]) %>% 
+  mutate(termina=ifelse(termina=="rival",0,1)) %>% 
+  select(4,14:30,32:39) %>% 
+  cor(.,method='spearman') %>% round(.,4) %>% 
+  ggcorrplot()
+```
+
+### División en zonas
+También podría ser útil tener en consideración no sólo dónde inició y terminó cada jugada sino que también de alguna manera replicar la trayectoria de la pelota en la secuencia. Para ello, se propone dividir la cancha en zonas y analizar hacia dónde el equipo llevó el balón y por cuántos sectores (zonas) del terreno pasó la pelota en la jugada. Cabe aclarar que para el conteo de zonas se tendrá en cuenta únicamente aquellas zonas dónde se realizaron acciones y no necesariamente por dónde pasó la pelota. 
+
+```{r trayy,echo=FALSE,warning=FALSE,message=FALSE}
+cortes_tray<-c(2,4,6,8,9,10,14,16,24,28,30,33,37,38,42,43) #PENSAR QUE HACER CON LAS ACCIONES DE GK, DUELS Y 50/50
+jugada_siguiente<-d %>% group_by(match_id,possession) %>% 
+  summarise(tipo=first(play_pattern.name),eq=first(team.name)) %>% 
+  mutate(jugada_siguiente=lead(tipo),eq_sig=lead(eq)) %>% select(-tipo)
+
+
+
+graf<-trayM %>% ungroup() %>%  group_by(possession) %>% 
+  filter(match_id==3857270  ) %>% 
+  select(match_id,possession,termina) %>% distinct() %>% 
+  inner_join(d,by=c("match_id","possession")) %>% 
+  filter((sum(type.id==30)>0|sum(type.id==43)>0) & 
+           !type.id%in% eventos_irrelevantes) %>% 
+  ungroup() %>% 
+  select(match_id,minute,second,period,possession,possession_team.name,team.name,type.name,player.name,
+         under_pressure,location.x,location.y,pass.end_location.x,pass.end_location.y,
+         carry.end_location.x,carry.end_location.y,play_pattern.name,resultado,pass.outcome.name,
+         ball_receipt.outcome.name,duel.outcome.name,dribble.outcome.name,
+         interception.outcome.name,shot.end_location.x,shot.end_location.y,shot.outcome.name,termina) %>% 
+  mutate(loc.y=80-location.y,
+         pass.end_loc.y=80-pass.end_location.y,
+         carry.end_loc.y=80-carry.end_location.y,
+         end.x=ifelse(type.name=="Pass",pass.end_location.x,ifelse(type.name=="Carry",carry.end_location.x,
+                                                              location.x)),
+         end.y=ifelse(type.name=="Pass",pass.end_loc.y,ifelse(type.name=="Carry",carry.end_loc.y,
+                                                              loc.y))) %>% mutate(exitoso=ifelse(is.na(pass.outcome.name),"si","no")) 
+
+
+lineas <- data.frame(
+  x = c(0, 0, 0, 120, 60, 0, 0, 18, 102, 102, 102, 0, 0, 6, 114, 114, 114),
+  xend = c(120, 120, 0, 120, 60, 18, 18, 18, 120, 120, 102, 6, 6, 6, 120, 120, 114),
+  y = c(0, 80, 0, 0, 0, 18, 62, 18, 18, 62, 18, 30, 50, 30, 30, 50, 30),
+  yend = c(0, 80, 80, 80, 80, 18, 62, 62, 18, 62, 62, 30, 50, 50, 30, 50, 50))
+
+ggplot()+geom_segment(aes(x=location.x,xend=end.x,y=loc.y,
+                          yend=end.y,color=termina),filter(graf,possession_team.name==team.name&
+                                                               type.name%in%c("Pass","Carry")))+
+  geom_point(aes(location.x,loc.y,color=termina),filter(graf,possession_team.name==team.name&
+                                                            !type.name%in%c("Pass","Carry")))+
+  geom_segment(aes(x=location.x,xend=shot.end_location.x,y=loc.y,
+                   yend=80-shot.end_location.y,color=termina),linetype = 2,filter(graf,possession_team.name==team.name&
+                                                                                      type.name=="Shot"))+
+  geom_segment(aes(x=x,xend=xend,y=y,yend=yend),data=lineas)+
+  facet_wrap(~possession_team.name)+
+  labs(caption='Sentido del ataque de izquierda a derecha')+theme(legend.position = "bottom")
+
+```
+
+Otro aspecto relevante a estudiar de las secuencias es su éxito o no al momento de generar situaciones ventajosas para el equipo. En ese sentido, se crea una métrica que, en una primera instancia y de manera muy poco abarcativa, se definen como *exitosas* aquellas jugadas en las que se realiza un remate al arco o bien el equipo que tiene la posesión logra sacar una falta o un córner. Se buscará trabajar en esta línea de modo de definir y encontrar qué tipo de jugadas son *exitosas* más allá de éstas ya mencionadas. A modo de ejemplo, podríamos preguntarnos si luego de recibir un pase de un compañero, un futbolista logra avanzar una cierta distancia con la pelota controlada, no es una situación ventajosa? La posesión sería *exitosa* en ese caso? 
+
+Si quisieramos podríamos ver en detalle cómo se componen las posesiones de modo de ver qué tipo de eventos realizan los equipos y en qué sector del terreno. A los efectos de caracterizar estas posesiones, estos aspectos pueden tener particular relevancia ya que no es lo mismo que las posesiones sean básicamente pases entre compañeros a que sean jugadores aislados que trasladan la pelota sin tantos pases de por medio.
+
+Respecto a la cantidad de zonas no hay particularmente una división *óptima* ni *mejor* pero en este caso tenemos 3 divisiones tales como podemos ver en la figura siguiente (el sentido del ataque es de izquierda a derecha). Las división en 8 zonas corresponde al estudio realizado por **Shen, Santo & Akande** en el cual a través del estudio de los *flow-motifs* proponen un análisis del ritmo de juego de las posesiones. Las otras dos maneras de dividir la cancha corresponden a distintas propuestas de distintos analistas de modo de estudiar aspectos del juego.
+```{r graf zonas,echo=FALSE,fig.cap='División en zonas de la cancha',warning=FALSE,message=FALSE,fig.align='center'}
+#grafz(30)+grafz(3)/grafz(8)
+grid.arrange(grafz(30),grid.arrange(grafz(3),grafz(8),ncol=1),ncol=2)
+```
+
+Asimismo, también podría ser relevante observar cuantas acciones (eventos) se realizan en cada una de estas zonas y no solo si pasan por allí o no de modo de caracterizar aún más los patrones de juego de los equipos. 
+Si tomamos la división en 30 zonas, se encuentra la siguiente posesión del partido de Argengina vs Polonia en la cual se realizaron acciones en 20 zonas (no necesariamente por donde pasó la pelota). Cabe preguntarse si es de interés tomar en cuenta las zonas por donde pasa la trayectoria de la pelota en toda la secuencia.
+
+
+```{r tray,echo=FALSE,warning=FALSE,message=FALSE}
+graf<-trayM %>% ungroup() %>%  group_by(possession) %>% 
+  filter(match_id==3857264 & possession==112) %>% 
+  select(match_id,possession,termina) %>% distinct() %>% 
+  inner_join(d,by=c("match_id","possession")) %>% 
+  filter((sum(type.id==30)>0|sum(type.id==43)>0) & 
+           !type.id%in% eventos_irrelevantes) %>% 
+  ungroup() %>% 
+  select(match_id,minute,second,period,possession,possession_team.name,team.name,type.name,player.name,
+         under_pressure,location.x,location.y,pass.end_location.x,pass.end_location.y,
+         carry.end_location.x,carry.end_location.y,play_pattern.name,resultado,pass.outcome.name,
+         ball_receipt.outcome.name,duel.outcome.name,dribble.outcome.name,
+         interception.outcome.name,shot.end_location.x,shot.end_location.y,shot.outcome.name,termina) %>% 
+  mutate(loc.y=80-location.y,
+         pass.end_loc.y=80-pass.end_location.y,
+         carry.end_loc.y=80-carry.end_location.y,
+         end.x=ifelse(type.name=="Pass",pass.end_location.x,ifelse(type.name=="Carry",carry.end_location.x,
+                                                              location.x)),
+         end.y=ifelse(type.name=="Pass",pass.end_loc.y,ifelse(type.name=="Carry",carry.end_loc.y,
+                                                              loc.y))) %>% mutate(exitoso=ifelse(is.na(pass.outcome.name),"si","no")) 
+
+ggplot()+geom_segment(aes(x=location.x,xend=end.x,y=loc.y,
+                          yend=end.y,color=type.name),filter(graf,possession_team.name==team.name&
+                                                               type.name%in%c("Pass","Carry")))+
+  geom_point(aes(location.x,loc.y,color=type.name),filter(graf,possession_team.name==team.name&
+                                                            !type.name%in%c("Pass","Carry","Pressure","Goal Keeper",
+                                                                            "Foul Committed","Foul Won","Miscontrol")))+
+  geom_segment(aes(x=location.x,xend=shot.end_location.x,y=loc.y,
+                   yend=80-shot.end_location.y,color=type.name),linetype = 2,filter(graf,possession_team.name==team.name&
+                                                                                                       type.name=="Shot"))+
+  geom_segment(aes(x=x,xend=xend,y=y,yend=yend),data=lineas)+
+  facet_wrap(~possession_team.name)+
+  geom_segment(aes(x=0,xend=120,y=0,yend=0))+
+geom_segment(aes(x=0,xend=120,y=80,yend=80))+
+geom_segment(aes(x=0,xend=0,y=0,yend=80))+
+geom_segment(aes(x=120,xend=120,y=0,yend=80))+
+geom_segment(aes(x=60,xend=60,y=0,yend=80))+
+geom_segment(aes(x=0,xend=120,y=62,yend=62))+
+geom_segment(aes(x=0,xend=120,y=18,yend=18))+
+geom_segment(aes(x=0,xend=120,y=30,yend=30))+
+geom_segment(aes(x=0,xend=120,y=50,yend=50))+
+geom_segment(aes(x=18,xend=18,y=0,yend=80))+
+geom_segment(aes(x=39,xend=39,y=0,yend=80))+
+geom_segment(aes(x=102,xend=102,y=0,yend=80))+
+geom_segment(aes(x=81,xend=81,y=0,yend=80)) +
+  labs(caption='Sentido del ataque de izquierda a derecha')+
+  theme(legend.position = "bottom")
+
+```
+
+
+De alguna manera resulta esperable que a mayor duración de la posesión, mayor cantidad de zonas por la que pasa el juego de un equipo. Para ello, analizamos las dispersión de la cantidad de zonas por la que pasa una secuencia en función del tiempo (agrupado en intervalos de 6 segundos)
+Asimismo, podemos ver puntualmente la dispersión de durante todo el campeonato de las secuencias de Argentina y Francia (los finalistas) y de España y Arabia Saudita, el de mayor tiempo de posesión promedio por partido y el de menor respectivamente. 
+
+```{r graf nzonas vs tiempo pos,echo=FALSE,fig.cap='Dispersión de la cantidad de zonas por posesión según su duración (en segs)',fig.width=9}
+trayectoriasM %>% mutate(intervalo=cut(tiempo,breaks = c(seq(0,138,6)),include.lowest =  TRUE)) %>%
+  ggplot()+geom_boxplot(aes(intervalo,nzonas))+
+  geom_jitter(data = . %>% filter(team.name %in% c("Argentina","France")),
+              aes(intervalo,nzonas,color = team.name), width = 0.2, alpha = 0.6)
+```
+
+
+
+
+
+```{r graf nzonas vs tiempo pos2,echo=FALSE,fig.cap='Dispersión de la cantidad de zonas por posesión según su duración (en segs)',fig.width=9}
+trayectoriasM %>% mutate(intervalo=cut(tiempo,breaks = c(seq(0,138,6)),include.lowest =  TRUE)) %>%
+  ggplot()+geom_boxplot(aes(intervalo,nzonas))+
+  geom_jitter(data = . %>% filter(team.name %in% c("Spain","Saudi Arabia")),
+              aes(intervalo,nzonas,color = team.name), width = 0.2, alpha = 0.6)
+```
+
+
+
+```{r gr,echo=FALSE,fig.width=9}
+a<-duracion_pos2 %>% group_by(possession_team.id) %>% summarise(suma=sum(duracion_pos))
+trayectoriasM %>% 
+  bind_rows( trayectoriasF) %>% 
+  filter(prom_av_p>0&prom_av_t>0) %>% 
+  left_join(a,by="possession_team.id") %>% 
+  ggplot()+geom_point(aes(prom_av_p,prom_av_t,color=suma))+facet_wrap(~resultado)+labs(x='Avance prom pases',
+                                                                                       y='Avance prom conducc')
+
+
+trayectoriasM %>% 
+  bind_rows( trayectoriasF) %>% 
+  filter(prom_av_p>0&prom_av_t>0) %>% 
+  left_join(select(duracion_pos2,c(match_id,possession_team.id,duracion_pos)),by=c("match_id","possession_team.id")) %>% 
+  ggplot()+geom_point(aes(prom_av_p,prom_av_t,color=duracion_pos))+facet_wrap(mundial~resultado)+labs(x='Avance prom pases',
+                                                                                       y='Avance prom conducc')
+```
+
+

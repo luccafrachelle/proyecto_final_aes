@@ -18,26 +18,21 @@ library(patchwork)
 library(ggcorrplot)
 library(gridExtra)
 
-Matches<-readRDS("partidos_mundial2022.rds")
-Matches_2023<-readRDS("partidos_mundialfem2023.rds")
-d<-readRDS("partidos_mundial_COMPLETO2022.rds") 
-d_mundialfem<-readRDS("data_mundial2023.rds") %>% 
+Matches<-readRDS("datos origin/partidos_mundial2022.rds")
+Matches_2023<-readRDS("datos origin/partidos_mundialfem2023.rds")
+d<-readRDS("datos origin/partidos_mundial_COMPLETO2022.rds") 
+d_mundialfem<-readRDS("datos origin/data_mundial2023.rds") %>% 
   mutate(possession_team.name=str_extract(possession_team.name, ".*?(?= Women's)"),
          team.name=str_extract(team.name, ".*?(?= Women's)"))
-nombres<-read_excel("correccion nombres jugadores.xlsx") %>% select(1,5)
-d<- d %>% 
-  left_join(nombres,by="player.name") %>% 
-  left_join(rename(nombres,pass.recipient.name2=2),by=c("pass.recipient.name"="player.name")) 
 eventos_irrelevantes<-c(5,18,19,24,26,27,34,35,36,40,41)
 
-source("minutos jugados.R")
-source("funciones creadas.R")
-baseM<-read_rds("baseM.rds")
-trayM<-read_rds("trayM.rds")
-baseF<-read_rds("baseF.rds")
-trayF<-read_rds("trayF.rds")
+source("datos origin/minutos jugados.R")
+source("datos origin/funciones creadas.R")
+baseM<-read_rds("datos origin/baseM.rds")
+trayM<-read_rds("datos origin/trayM.rds")
+baseF<-read_rds("datos origin/baseF.rds")
+trayF<-read_rds("datos origin/trayF.rds")
 
-setwd(paste0(here(),"/Mundial SB/reportes"))
 ```
 
 ## Resumen de la base

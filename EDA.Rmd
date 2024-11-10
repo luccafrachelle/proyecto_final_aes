@@ -18,20 +18,20 @@ library(patchwork)
 library(ggcorrplot)
 library(gridExtra)
 
-Matches<-readRDS("datos origin/partidos_mundial2022.rds")
-Matches_2023<-readRDS("datos origin/partidos_mundialfem2023.rds")
-d<-readRDS("datos origin/partidos_mundial_COMPLETO2022.rds") 
-d_mundialfem<-readRDS("datos origin/data_mundial2023.rds") %>% 
+Matches<-readRDS("data/partidos_mundial2022.rds")
+Matches_2023<-readRDS("data/partidos_mundialfem2023.rds")
+d<-readRDS("data/partidos_mundial_COMPLETO2022.rds") 
+d_mundialfem<-readRDS("data/data_mundial2023.rds") %>% 
   mutate(possession_team.name=str_extract(possession_team.name, ".*?(?= Women's)"),
          team.name=str_extract(team.name, ".*?(?= Women's)"))
 eventos_irrelevantes<-c(5,18,19,24,26,27,34,35,36,40,41)
 
-source("datos origin/minutos jugados.R")
-source("datos origin/funciones creadas.R")
-baseM<-read_rds("datos origin/baseM.rds")
-trayM<-read_rds("datos origin/trayM.rds")
-baseF<-read_rds("datos origin/baseF.rds")
-trayF<-read_rds("datos origin/trayF.rds")
+source("data/minutos jugados.R")
+source("data/funciones creadas.R")
+baseM<-read_rds("data/baseM.rds")
+trayM<-read_rds("data/trayM.rds")
+baseF<-read_rds("data/baseF.rds")
+trayF<-read_rds("data/trayF.rds")
 
 ```
 
@@ -41,7 +41,6 @@ Las bases de datos corresponden a los datos de *eventing* proporcionados por la 
 
 ```{r descr eventos, echo=FALSE}
 data.frame(eventos=unique(d$type.name))
-
 ```
 
 
@@ -93,7 +92,7 @@ También puede ocurrir que si bien un equipo no pierde el control de la pelota, 
 
 ```{r resumen vars, echo=FALSE,eval=FALSE}
 d %>% select(!starts_with(unique(d$type.name))) %>%  
-  select(-resultado,-player.name2) %>% 
+  select(-resultado,-player.name) %>% 
   colnames()
 
 ```
@@ -209,20 +208,33 @@ trayectoriasM<-trayM %>%
          vel_media_p=ifelse(is.nan(vel_media_p)|is.infinite(vel_media_p),0,vel_media_p),
          vel_media_c=ifelse(is.nan(vel_media_c)|is.infinite(vel_media_c),0,vel_media_c))
 trayectoriasF<-trayF %>% 
-  select(-c(timestamp,segs_corr,type.id,type.name,avance_p,avance_c,player.id,player.name)) %>% 
+  select(-c(,type.id,type.name,avance_p,avance_c,player.id,player.name)) %>% 
   group_by(match_id,possession) %>% 
   summarise(across(everything(), first)) %>% ungroup() %>% 
   mutate(prom_av_p=ifelse(is.nan(prom_av_p),0,prom_av_p),
          prom_av_t=ifelse(is.nan(prom_av_t),0,prom_av_t),
          vel_media_p=ifelse(is.nan(vel_media_p)|is.infinite(vel_media_p),0,vel_media_p),
          vel_media_c=ifelse(is.nan(vel_media_c)|is.infinite(vel_media_c),0,vel_media_c))
-
-trayectoriasM %>% select(-c(39,42,43)) %>% 
-  rbind(trayectoriasF[,-39]) %>% 
-  mutate(termina=ifelse(termina=="rival",0,1)) %>% 
-  select(4,14:30,32:39) %>% 
-  cor(.,method='spearman') %>% round(.,4) %>% 
+  
+trayectoriasM %>%
+  select(tiempo, n_eventos, n_pases, n_pasesC, n_traslados, n_driblesE, prom_av_p,
+         prom_av_t, n_jugadores, n_centros, n_cdf, n_pases_arearival,
+         n_ingresos_arearival, inicia_golero, participa_golero, termina_tiro,
+         tiro, gol, zona_fin, nzonas, xG, vel_media_p, vel_media_c,
+         vert_tot, horiz_tot, termina) %>%
+  rbind(
+    trayectoriasF %>%
+      select(tiempo, n_eventos, n_pases, n_pasesC, n_traslados, n_driblesE, prom_av_p,
+             prom_av_t, n_jugadores, n_centros, n_cdf, n_pases_arearival,
+             n_ingresos_arearival, inicia_golero, participa_golero, termina_tiro,
+             tiro, gol, zona_fin, nzonas, xG, vel_media_p, vel_media_c,
+             vert_tot, horiz_tot, termina)
+  ) %>%
+  mutate(termina = ifelse(termina == "rival", 0, 1)) %>%
+  cor(method = 'spearman') %>%
+  round(4) %>%
   ggcorrplot()
+
 ```
 
 ### División en zonas
@@ -382,5 +394,3 @@ trayectoriasM %>%
   ggplot()+geom_point(aes(prom_av_p,prom_av_t,color=duracion_pos))+facet_wrap(mundial~resultado)+labs(x='Avance prom pases',
                                                                                        y='Avance prom conducc')
 ```
-
-

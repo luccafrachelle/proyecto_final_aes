@@ -2,7 +2,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
 
 <meta charset="utf-8">
-<meta name="generator" content="quarto-1.4.552">
+<meta name="generator" content="quarto-1.4.555">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
@@ -80,48 +80,8 @@ ul.task-list li input[type="checkbox"] {
 <h2 class="anchored" data-anchor-id="resumen-de-la-base">Resumen de la base</h2>
 <section id="eventos" class="level3">
 <h3 class="anchored" data-anchor-id="eventos">Eventos</h3>
-<p>Las bases de datos corresponden a los datos de <em>eventing</em> proporcionados por la empresa <em>StatsBomb</em>, especializada en la recolección y análisis de datos en el mundo del fútbol, de cada uno de los partidos del Mundial masculino disputado en Catar en 2022 y del Mundial femenino disputado en Australia y Nueva Zelanda en 2023 (64 partidos). Dicha base está compuesta por los distintos eventos que se realizaron en el transcurso de cada encuentro y variables asociadas a cada tipo de evento según corresponda (184 variables y 459967 observaciones entre los 2 mundiales). Se considera un evento cada una de las acciones realizadas ya sea por los jugadores (pases, tiros al arco, atajadas, regates, traslados de balón, …) así como del resto de los actores de un partido (cambios, tarjetas, inicio/final de partido, entre otras). Las posesiones están compuestas por varios de estos tipos de eventos. En este caso, la base de Statsbomb cuenta con 33 eventos distintos, los cuales se detallan en la tabla a continuación</p>
-<div class="cell">
-<div class="cell-output cell-output-stdout">
-<pre><code>             eventos
-1        Starting XI
-2         Half Start
-3               Pass
-4      Ball Receipt*
-5              Carry
-6           Pressure
-7          Clearance
-8      Ball Recovery
-9       Dispossessed
-10              Duel
-11    Foul Committed
-12          Foul Won
-13              Shot
-14             Block
-15       Goal Keeper
-16   Injury Stoppage
-17 Referee Ball-Drop
-18      Interception
-19        Miscontrol
-20     Dribbled Past
-21           Dribble
-22      Substitution
-23          Half End
-24    Tactical Shift
-25            Shield
-26             50/50
-27             Error
-28     Bad Behaviour
-29        Player Off
-30         Player On
-31           Offside
-32  Own Goal Against
-33      Own Goal For</code></pre>
-</div>
-</div>
-<p>Algunos de estos eventos no refieren especificamente a situaciones de juego tales como incios y finales de partidos, sustituciones de jugadores, formaciones iniciales, tarjetas mostradas por el juez, cambios tácticos, sueltas neutrales de balón y pausas en el partido ya sea por lesión u otra situación excepcional. Estos eventos no serán tenidos en cuenta en el análisis ya se considera que no aportan nada desde el punto de vista del juego y de las posesiones dentro del mismo. ASIMISMO, SI BIEN REFIEREN A ACCIONES DE JUEGO, TAMBIÉN SE EXCLUYEN OTROS EVENTOS TALES COMO SHIELD, MISCONTROL. Lo mismo haremos con los registros de las tandas de penales (período 5 en la base) que serán excluidos del análisis.</p>
+<p>El objetivo del presente trabajo es encontrar y modelar los determinantes de éxito de una posesión en el contexto de un partido de fútbol. Para ello, se cuenta con información relativa a los 64 partidos de los mundiales masculino y femenino disputados en Qatar en 2022 y Australia/Nueva Zelanda en 2023, respectivamente. Concretamente, los datos refieren a datos de eventing de la consultora especializada <em>StastBomb</em> y se obtuvieron a través de su paquete en R ‘StatsBombR’. Los datos de <em>eventing</em> refieren al registro de cada una de las acciones que realizan los jugadores con la pelota en cada uno de los partidos. Dicha base está compuesta por los distintos eventos que se realizaron en el transcurso de cada encuentro y variables asociadas a cada tipo de evento según corresponda (184 variables y 459967 observaciones entre los 2 mundiales). Se considera un evento cada una de las acciones realizadas ya sea por los jugadores (pases, tiros al arco, atajadas, regates, traslados de balón, …) así como del resto de los actores de un partido (cambios, tarjetas, inicio/final de partido, entre otras). Las posesiones están compuestas por varios de estos tipos de acciones. En este caso, la base cuenta con 33 tipos de eventos distintos. Algunos de estos eventos no refieren específicamente a situaciones de juego tales como incios y finales de partidos, sustituciones de jugadores, formaciones iniciales, tarjetas mostradas por el juez, cambios tácticos, sueltas neutrales de balón y pausas en el partido ya sea por lesión u otra situación excepcional. Estos eventos no serán tenidos en cuenta en el análisis ya que se considera que no aportan nada desde el punto de vista del juego y de las posesiones dentro del mismo.</p>
 <p>En ese sentido se trabajará con las acciones de juego que involucren la pelota o la disputa de ésta. Mayoritariamente tenemos pases pero también se registran traslados con pelota controlada (<em>Carry</em>), recepción de balón (<em>Ball Receipt</em>), acciones defensivas de presión hacia un rival (<em>Pressure</em>), recuperaciones de pelota (<em>Ball Recovery</em>), duelos (<em>Duel</em>), despejes (<em>Clearance</em>), tiros al arco (<em>Shot</em>), regates (<em>Dribble</em>), atajadas(<em>Goal Keeper</em>), entre otros.</p>
-<p>Luego de los remates al arco (que determinan los resultados directamente), los pases son el aspecto fundamental de la forma de juego de los equipos por lo que es esperable encontrar que éstos representen la mayor cantidad de registros (30%) y los eventos predominantes en cada posesión (1070 pases en promedio por partido y 6.2 por posesión) independientemente de que estos hayan sido exitosos o no. Los eventos de tipo pases tienen asociados otro tipo de eventos que son los <em>Ball Receipt</em> que por lo general se dan cuando los pases efectivamente llegaron a destino, lo único qué nos dice las coordenadas de la cancha dónde se recibieron los distintos pases. VER QUÉ HACER CON ESTOS TIPOS DE EVENTOS. LOS SACAMOS? HAY BALL RECEIPT QUE NO PROVENGAN DE PASES? QUÉ SON? ????</p>
 <div class="cell">
 <div class="cell-output-display">
 <div>
@@ -130,26 +90,8 @@ ul.task-list li input[type="checkbox"] {
 </figure>
 </div>
 </div>
-<div class="cell-output-display">
-<div>
-<figure class="figure">
-<p><img src="explorando_files/figure-html/unnamed-chunk-1-2.png" class="img-fluid figure-img" width="672"></p>
-</figure>
 </div>
-</div>
-</div>
-</section>
-<section id="variables-a-utilizar" class="level3">
-<h3 class="anchored" data-anchor-id="variables-a-utilizar">Variables a utilizar</h3>
-<p>Además de la variable ya mencionada respecto a qué tipo de acción se da en cada jugada tenemos otros tipos de variables. Por una parte, tenemos algunas relativas a cada acción (evento de juego): cuándo y dónde se realiza, qué equipo (y qué jugador) lo realiza, qué equipo tiene la posesión y a qué tipo de secuencia refiere (<em>play_pattern.name</em>). Más concretamente, cada acción forma parte de una posesión dentro de cada uno de los 64 partidos a analizar. Estas posesiones son las que queremos estudiar y se definen como los períodos de tiempo en el que un equipo logra establecer el control de la pelota hasta que el rival la recupera y logra asesgurarla. Por ejemplo, puede suceder que haya secuencias en las que un equipo realice acciones dentro de posesiones del equipo rival. Esto se debe a que con esas acciones no logra asegurar la posesión por lo que el identificador correspondiente permanece incambiado. En esta primera instancia del análisis no se tendrán en cuenta este tipo de posesiones, se trabajará únicamente con aquellas en las cuales sólo el equipo <em>dueño</em> de esa secuencia realiza las acciones. También puede ocurrir que si bien un equipo no pierde el control de la pelota, el contador de la posesión se reinicie ya que cuando la pelota sale de la cancha, automáticamente se genera una nueva secuencia independientemente del equipo que reanude el juego.</p>
-<p>Por otra parte tenemos distintas características de los distintos tipos de evento según corresponda tales como su éxito o no, los distintos tipos de acciones, distancia, entre otras.</p>
-<p>En este contexto se buscará estudiar las distintas secuencias de los equipos en cuanto tienen la posesión a su favor (<em>possession</em>). En ese sentido, tomando en cuenta ambas copas del mundo tenemos en promedio un poco más de 177 posesiones por partido para el mundial masculino mientras que un poco menos de 193 para el femenino.</p>
-<div class="cell">
-<div class="cell-output cell-output-stderr">
-<pre><code>`summarise()` has grouped output by 'mundial', 'match_id'. You can override
-using the `.groups` argument.</code></pre>
-</div>
-</div>
+<p>En este contexto se buscará estudiar las distintas secuencias de los equipos en cuanto tienen la posesión a su favor (<em>possession</em>). En ese sentido, tomando en cuenta ambas copas del mundo se cuenta en total con un promedio de un poco más de 177 posesiones por partido para el mundial masculino mientras que un poco menos de 193 para el femenino.</p>
 <div class="cell">
 <div class="cell-output-display">
 <div class="quarto-figure quarto-figure-center">
@@ -168,17 +110,7 @@ using the `.groups` argument.</code></pre>
 </div>
 </div>
 </div>
-<p>Además de las variables contenidas originalmente en la base, se crea una nueva que nos indica el resultado del partido desde el punto de vista del equipo que realiza la acción (no el equipo dueño de la posesión). Es decir, si el equipo va ganando, perdiendo o empatando.</p>
-<div class="cell">
-<div class="cell-output-display">
-<div>
-<figure class="figure">
-<p><img src="explorando_files/figure-html/pases%20por%20pos%20y%20por%20eq-1.png" class="img-fluid figure-img" width="672"></p>
-</figure>
-</div>
-</div>
-</div>
-<p>Por lo tanto, nuestra observaciones pasarán a ser las posesiones y no los distintos eventos. A estos efectos, con la información contenida en los datos de eventing de SB se buscará conformar una base que nos permita describir cada una de estas secuencias para su posterior estudio y clasificación. Para ello, en una primera instancia, no se trabajará con todas las posesiones sino que por simplicidad nos quedaremos únicamente con aquellas posesiones en las cuales las acciones en las mismas son realizadas por el equipos poseedor del balón o, en su defecto, que las acciones del rival no involucren directamente la pelota: acciones de presión, faltas cometidas o recibidas, atajadas del golero y/o jugadores dribleados del conjunto que esta defendiendo (<em>Dribbled Past</em>). De esta manera la trayectoria de la pelota se ve únicamente afectada por las acciones realizadas por el equipo que tiene la posesión y no por el rival. Nos quedaremos finalmente con 5269 posesiones a nivel masculino y 4706 del mundial femenino para estudiar la trayectoria de la pelota en estas secuencias a través de sus características para su posterior clasificación.</p>
+<p>Por lo tanto, nuestra observaciones pasarán a ser las posesiones y no los distintos eventos. A estos efectos, con la información contenida en los datos de eventing conformó una base que nos permita describir cada una de estas secuencias para su posterior estudio y clasificación. Para ello, en una primera instancia, no se trabajará con todas las posesiones sino que por simplicidad nos quedaremos únicamente con aquellas posesiones en las cuales las acciones en las mismas son realizadas por el equipos poseedor del balón o, en su defecto, que las acciones del rival no involucren directamente la pelota: acciones de presión, faltas cometidas o recibidas, atajadas del golero y/o jugadores dribleados del conjunto que esta defendiendo (<em>Dribbled Past</em>). De esta manera la trayectoria de la pelota se ve únicamente afectada por las acciones realizadas por el equipo que tiene la posesión y no por el rival. Nos quedaremos finalmente con 4961 posesiones a nivel masculino y 4409 del mundial femenino para estudiar la trayectoria de la pelota en estas secuencias.</p>
 </section>
 </section>
 <section id="características-de-las-posesiones" class="level2">
@@ -197,18 +129,6 @@ using the `.groups` argument.</code></pre>
 <section id="división-en-zonas" class="level3">
 <h3 class="anchored" data-anchor-id="división-en-zonas">División en zonas</h3>
 <p>También podría ser útil tener en consideración no sólo dónde inició y terminó cada jugada sino que también de alguna manera replicar la trayectoria de la pelota en la secuencia. Para ello, se propone dividir la cancha en zonas y analizar hacia dónde el equipo llevó el balón y por cuántos sectores (zonas) del terreno pasó la pelota en la jugada. Cabe aclarar que para el conteo de zonas se tendrá en cuenta únicamente aquellas zonas dónde se realizaron acciones y no necesariamente por dónde pasó la pelota.</p>
-<div class="cell">
-<div class="cell-output-display">
-<div>
-<figure class="figure">
-<p><img src="explorando_files/figure-html/trayy-1.png" class="img-fluid figure-img" width="672"></p>
-</figure>
-</div>
-</div>
-</div>
-<p>Otro aspecto relevante a estudiar de las secuencias es su éxito o no al momento de generar situaciones ventajosas para el equipo. En ese sentido, se crea una métrica que, en una primera instancia y de manera muy poco abarcativa, se definen como <em>exitosas</em> aquellas jugadas en las que se realiza un remate al arco o bien el equipo que tiene la posesión logra sacar una falta o un córner. Se buscará trabajar en esta línea de modo de definir y encontrar qué tipo de jugadas son <em>exitosas</em> más allá de éstas ya mencionadas. A modo de ejemplo, podríamos preguntarnos si luego de recibir un pase de un compañero, un futbolista logra avanzar una cierta distancia con la pelota controlada, no es una situación ventajosa? La posesión sería <em>exitosa</em> en ese caso?</p>
-<p>Si quisieramos podríamos ver en detalle cómo se componen las posesiones de modo de ver qué tipo de eventos realizan los equipos y en qué sector del terreno. A los efectos de caracterizar estas posesiones, estos aspectos pueden tener particular relevancia ya que no es lo mismo que las posesiones sean básicamente pases entre compañeros a que sean jugadores aislados que trasladan la pelota sin tantos pases de por medio.</p>
-<p>Respecto a la cantidad de zonas no hay particularmente una división <em>óptima</em> ni <em>mejor</em> pero en este caso tenemos 3 divisiones tales como podemos ver en la figura siguiente (el sentido del ataque es de izquierda a derecha). Las división en 8 zonas corresponde al estudio realizado por <strong>Shen, Santo &amp; Akande</strong> en el cual a través del estudio de los <em>flow-motifs</em> proponen un análisis del ritmo de juego de las posesiones. Las otras dos maneras de dividir la cancha corresponden a distintas propuestas de distintos analistas de modo de estudiar aspectos del juego.</p>
 <div class="cell" data-layout-align="center">
 <div class="cell-output-display">
 <div class="quarto-figure quarto-figure-center">
@@ -219,49 +139,11 @@ using the `.groups` argument.</code></pre>
 </div>
 </div>
 </div>
-<p>Asimismo, también podría ser relevante observar cuantas acciones (eventos) se realizan en cada una de estas zonas y no solo si pasan por allí o no de modo de caracterizar aún más los patrones de juego de los equipos. Si tomamos la división en 30 zonas, se encuentra la siguiente posesión del partido de Argengina vs Polonia en la cual se realizaron acciones en 20 zonas (no necesariamente por donde pasó la pelota). Cabe preguntarse si es de interés tomar en cuenta las zonas por donde pasa la trayectoria de la pelota en toda la secuencia.</p>
 <div class="cell">
 <div class="cell-output-display">
 <div>
 <figure class="figure">
 <p><img src="explorando_files/figure-html/tray-1.png" class="img-fluid figure-img" width="672"></p>
-</figure>
-</div>
-</div>
-</div>
-<p>De alguna manera resulta esperable que a mayor duración de la posesión, mayor cantidad de zonas por la que pasa el juego de un equipo. Para ello, analizamos las dispersión de la cantidad de zonas por la que pasa una secuencia en función del tiempo (agrupado en intervalos de 6 segundos) Asimismo, podemos ver puntualmente la dispersión de durante todo el campeonato de las secuencias de Argentina y Francia (los finalistas) y de España y Arabia Saudita, el de mayor tiempo de posesión promedio por partido y el de menor respectivamente.</p>
-<div class="cell">
-<div class="cell-output-display">
-<div class="quarto-figure quarto-figure-center">
-<figure class="figure">
-<p><img src="explorando_files/figure-html/graf%20nzonas%20vs%20tiempo%20pos-1.png" class="img-fluid figure-img" width="864"></p>
-<figcaption>Dispersión de la cantidad de zonas por posesión según su duración (en segs)</figcaption>
-</figure>
-</div>
-</div>
-</div>
-<div class="cell">
-<div class="cell-output-display">
-<div class="quarto-figure quarto-figure-center">
-<figure class="figure">
-<p><img src="explorando_files/figure-html/graf%20nzonas%20vs%20tiempo%20pos2-1.png" class="img-fluid figure-img" width="864"></p>
-<figcaption>Dispersión de la cantidad de zonas por posesión según su duración (en segs)</figcaption>
-</figure>
-</div>
-</div>
-</div>
-<div class="cell">
-<div class="cell-output-display">
-<div>
-<figure class="figure">
-<p><img src="explorando_files/figure-html/gr-1.png" class="img-fluid figure-img" width="864"></p>
-</figure>
-</div>
-</div>
-<div class="cell-output-display">
-<div>
-<figure class="figure">
-<p><img src="explorando_files/figure-html/gr-2.png" class="img-fluid figure-img" width="864"></p>
 </figure>
 </div>
 </div>
@@ -273,29 +155,30 @@ using the `.groups` argument.</code></pre>
 <p>El objetivo del modelo es clasificar las jugadas en exitosas o no exitosas, con el criterio de éxito definido subjetivamente. Para esto, se analizarán distintas características de cada jugada, buscando identificar las variables que permitan predecir con mayor precisión si una jugada será exitosa o no.</p>
 <p>Después de la descripción de los datos, se propone la creación de una variable objetivo (a predecir) denominada “éxito”, que tomará un valor binario para representar el éxito o fracaso de cada jugada.</p>
 <p>A continuación, se realizará un análisis exploratorio de datos (EDA) enfocado en esta variable de éxito, observando cómo se comporta en función de las características de las jugadas. Este análisis permitirá identificar patrones y relaciones que puedan ser útiles en la clasificación y mejora del rendimiento del modelo.</p>
+<p>La variable éxito se define a partir de la categorización de las jugadas: si la jugada termina en un tiro al arco, en un córner a favor, si la mayoría de las acciones se realizan bajo presión del rival y pese a ello se logra mantener la posesión, si la secuencia logra llegar hasta el área rival, si la posesión comienza en campo propio y logra llevar al tercio final con al menos 3 acciones y finalmente si el rival no logra recuperar la pelota y comete falta.</p>
+<p>Tanto las trayectorias en las que el rival logra recuperar la pelota así como aquellas que no cumplen ninguna de las 6 condiciones mencionadas se califican como <em>no exitosas</em> (variable exito=0)</p>
 </section>
 <section id="variables-a-usar" class="level2">
 <h2 class="anchored" data-anchor-id="variables-a-usar">Variables a usar</h2>
 <div class="cell">
 <div class="cell-output-display">
-<div>
-<div id="qyevbjljgj" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
-<style>#qyevbjljgj table {
+<div id="zxitblaenk" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<style>#zxitblaenk table {
   font-family: system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-#qyevbjljgj thead, #qyevbjljgj tbody, #qyevbjljgj tfoot, #qyevbjljgj tr, #qyevbjljgj td, #qyevbjljgj th {
+#zxitblaenk thead, #zxitblaenk tbody, #zxitblaenk tfoot, #zxitblaenk tr, #zxitblaenk td, #zxitblaenk th {
   border-style: none;
 }
 
-#qyevbjljgj p {
+#zxitblaenk p {
   margin: 0;
   padding: 0;
 }
 
-#qyevbjljgj .gt_table {
+#zxitblaenk .gt_table {
   display: table;
   border-collapse: collapse;
   line-height: normal;
@@ -321,12 +204,12 @@ using the `.groups` argument.</code></pre>
   border-left-color: #D3D3D3;
 }
 
-#qyevbjljgj .gt_caption {
+#zxitblaenk .gt_caption {
   padding-top: 4px;
   padding-bottom: 4px;
 }
 
-#qyevbjljgj .gt_title {
+#zxitblaenk .gt_title {
   color: #333333;
   font-size: 125%;
   font-weight: initial;
@@ -338,7 +221,7 @@ using the `.groups` argument.</code></pre>
   border-bottom-width: 0;
 }
 
-#qyevbjljgj .gt_subtitle {
+#zxitblaenk .gt_subtitle {
   color: #333333;
   font-size: 85%;
   font-weight: initial;
@@ -350,7 +233,7 @@ using the `.groups` argument.</code></pre>
   border-top-width: 0;
 }
 
-#qyevbjljgj .gt_heading {
+#zxitblaenk .gt_heading {
   background-color: #FFFFFF;
   text-align: center;
   border-bottom-color: #FFFFFF;
@@ -362,13 +245,13 @@ using the `.groups` argument.</code></pre>
   border-right-color: #D3D3D3;
 }
 
-#qyevbjljgj .gt_bottom_border {
+#zxitblaenk .gt_bottom_border {
   border-bottom-style: solid;
   border-bottom-width: 2px;
   border-bottom-color: #D3D3D3;
 }
 
-#qyevbjljgj .gt_col_headings {
+#zxitblaenk .gt_col_headings {
   border-top-style: solid;
   border-top-width: 2px;
   border-top-color: #D3D3D3;
@@ -383,7 +266,7 @@ using the `.groups` argument.</code></pre>
   border-right-color: #D3D3D3;
 }
 
-#qyevbjljgj .gt_col_heading {
+#zxitblaenk .gt_col_heading {
   color: #333333;
   background-color: #F2F2F2;
   font-size: 100%;
@@ -403,7 +286,7 @@ using the `.groups` argument.</code></pre>
   overflow-x: hidden;
 }
 
-#qyevbjljgj .gt_column_spanner_outer {
+#zxitblaenk .gt_column_spanner_outer {
   color: #333333;
   background-color: #F2F2F2;
   font-size: 100%;
@@ -415,15 +298,15 @@ using the `.groups` argument.</code></pre>
   padding-right: 4px;
 }
 
-#qyevbjljgj .gt_column_spanner_outer:first-child {
+#zxitblaenk .gt_column_spanner_outer:first-child {
   padding-left: 0;
 }
 
-#qyevbjljgj .gt_column_spanner_outer:last-child {
+#zxitblaenk .gt_column_spanner_outer:last-child {
   padding-right: 0;
 }
 
-#qyevbjljgj .gt_column_spanner {
+#zxitblaenk .gt_column_spanner {
   border-bottom-style: solid;
   border-bottom-width: 2px;
   border-bottom-color: #D3D3D3;
@@ -435,11 +318,11 @@ using the `.groups` argument.</code></pre>
   width: 100%;
 }
 
-#qyevbjljgj .gt_spanner_row {
+#zxitblaenk .gt_spanner_row {
   border-bottom-style: hidden;
 }
 
-#qyevbjljgj .gt_group_heading {
+#zxitblaenk .gt_group_heading {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -465,7 +348,7 @@ using the `.groups` argument.</code></pre>
   text-align: left;
 }
 
-#qyevbjljgj .gt_empty_group_heading {
+#zxitblaenk .gt_empty_group_heading {
   padding: 0.5px;
   color: #333333;
   background-color: #FFFFFF;
@@ -480,15 +363,15 @@ using the `.groups` argument.</code></pre>
   vertical-align: middle;
 }
 
-#qyevbjljgj .gt_from_md > :first-child {
+#zxitblaenk .gt_from_md > :first-child {
   margin-top: 0;
 }
 
-#qyevbjljgj .gt_from_md > :last-child {
+#zxitblaenk .gt_from_md > :last-child {
   margin-bottom: 0;
 }
 
-#qyevbjljgj .gt_row {
+#zxitblaenk .gt_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -507,7 +390,7 @@ using the `.groups` argument.</code></pre>
   overflow-x: hidden;
 }
 
-#qyevbjljgj .gt_stub {
+#zxitblaenk .gt_stub {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -520,7 +403,7 @@ using the `.groups` argument.</code></pre>
   padding-right: 5px;
 }
 
-#qyevbjljgj .gt_stub_row_group {
+#zxitblaenk .gt_stub_row_group {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -534,15 +417,15 @@ using the `.groups` argument.</code></pre>
   vertical-align: top;
 }
 
-#qyevbjljgj .gt_row_group_first td {
+#zxitblaenk .gt_row_group_first td {
   border-top-width: 2px;
 }
 
-#qyevbjljgj .gt_row_group_first th {
+#zxitblaenk .gt_row_group_first th {
   border-top-width: 2px;
 }
 
-#qyevbjljgj .gt_summary_row {
+#zxitblaenk .gt_summary_row {
   color: #333333;
   background-color: #FFFFFF;
   text-transform: inherit;
@@ -552,16 +435,16 @@ using the `.groups` argument.</code></pre>
   padding-right: 5px;
 }
 
-#qyevbjljgj .gt_first_summary_row {
+#zxitblaenk .gt_first_summary_row {
   border-top-style: solid;
   border-top-color: #D3D3D3;
 }
 
-#qyevbjljgj .gt_first_summary_row.thick {
+#zxitblaenk .gt_first_summary_row.thick {
   border-top-width: 2px;
 }
 
-#qyevbjljgj .gt_last_summary_row {
+#zxitblaenk .gt_last_summary_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -571,7 +454,7 @@ using the `.groups` argument.</code></pre>
   border-bottom-color: #D3D3D3;
 }
 
-#qyevbjljgj .gt_grand_summary_row {
+#zxitblaenk .gt_grand_summary_row {
   color: #333333;
   background-color: #FFFFFF;
   text-transform: inherit;
@@ -581,7 +464,7 @@ using the `.groups` argument.</code></pre>
   padding-right: 5px;
 }
 
-#qyevbjljgj .gt_first_grand_summary_row {
+#zxitblaenk .gt_first_grand_summary_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -591,7 +474,7 @@ using the `.groups` argument.</code></pre>
   border-top-color: #D3D3D3;
 }
 
-#qyevbjljgj .gt_last_grand_summary_row_top {
+#zxitblaenk .gt_last_grand_summary_row_top {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -601,11 +484,11 @@ using the `.groups` argument.</code></pre>
   border-bottom-color: #D3D3D3;
 }
 
-#qyevbjljgj .gt_striped {
+#zxitblaenk .gt_striped {
   background-color: rgba(128, 128, 128, 0.05);
 }
 
-#qyevbjljgj .gt_table_body {
+#zxitblaenk .gt_table_body {
   border-top-style: solid;
   border-top-width: 2px;
   border-top-color: #D3D3D3;
@@ -614,7 +497,7 @@ using the `.groups` argument.</code></pre>
   border-bottom-color: #D3D3D3;
 }
 
-#qyevbjljgj .gt_footnotes {
+#zxitblaenk .gt_footnotes {
   color: #333333;
   background-color: #FFFFFF;
   border-bottom-style: none;
@@ -628,7 +511,7 @@ using the `.groups` argument.</code></pre>
   border-right-color: #D3D3D3;
 }
 
-#qyevbjljgj .gt_footnote {
+#zxitblaenk .gt_footnote {
   margin: 0px;
   font-size: 90%;
   padding-top: 4px;
@@ -637,7 +520,7 @@ using the `.groups` argument.</code></pre>
   padding-right: 5px;
 }
 
-#qyevbjljgj .gt_sourcenotes {
+#zxitblaenk .gt_sourcenotes {
   color: #333333;
   background-color: #FFFFFF;
   border-bottom-style: none;
@@ -651,7 +534,7 @@ using the `.groups` argument.</code></pre>
   border-right-color: #D3D3D3;
 }
 
-#qyevbjljgj .gt_sourcenote {
+#zxitblaenk .gt_sourcenote {
   font-size: 90%;
   padding-top: 4px;
   padding-bottom: 4px;
@@ -659,76 +542,85 @@ using the `.groups` argument.</code></pre>
   padding-right: 5px;
 }
 
-#qyevbjljgj .gt_left {
+#zxitblaenk .gt_left {
   text-align: left;
 }
 
-#qyevbjljgj .gt_center {
+#zxitblaenk .gt_center {
   text-align: center;
 }
 
-#qyevbjljgj .gt_right {
+#zxitblaenk .gt_right {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
 
-#qyevbjljgj .gt_font_normal {
+#zxitblaenk .gt_font_normal {
   font-weight: normal;
 }
 
-#qyevbjljgj .gt_font_bold {
+#zxitblaenk .gt_font_bold {
   font-weight: bold;
 }
 
-#qyevbjljgj .gt_font_italic {
+#zxitblaenk .gt_font_italic {
   font-style: italic;
 }
 
-#qyevbjljgj .gt_super {
+#zxitblaenk .gt_super {
   font-size: 65%;
 }
 
-#qyevbjljgj .gt_footnote_marks {
+#zxitblaenk .gt_footnote_marks {
   font-size: 75%;
   vertical-align: 0.4em;
   position: initial;
 }
 
-#qyevbjljgj .gt_asterisk {
+#zxitblaenk .gt_asterisk {
   font-size: 100%;
   vertical-align: 0;
 }
 
-#qyevbjljgj .gt_indent_1 {
+#zxitblaenk .gt_indent_1 {
   text-indent: 5px;
 }
 
-#qyevbjljgj .gt_indent_2 {
+#zxitblaenk .gt_indent_2 {
   text-indent: 10px;
 }
 
-#qyevbjljgj .gt_indent_3 {
+#zxitblaenk .gt_indent_3 {
   text-indent: 15px;
 }
 
-#qyevbjljgj .gt_indent_4 {
+#zxitblaenk .gt_indent_4 {
   text-indent: 20px;
 }
 
-#qyevbjljgj .gt_indent_5 {
+#zxitblaenk .gt_indent_5 {
   text-indent: 25px;
+}
+
+#zxitblaenk .katex-display {
+  display: inline-flex !important;
+  margin-bottom: 0.75em !important;
+}
+
+#zxitblaenk div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
+  height: 0px !important;
 }
 </style>
 
-<table class="gt_table table table-sm table-striped small" data-quarto-postprocess="true" data-quarto-disable-processing="false" data-quarto-bootstrap="false">
+<table class="gt_table caption-top table table-sm table-striped small" data-quarto-postprocess="true" data-quarto-disable-processing="false" data-quarto-bootstrap="false">
 <thead>
 <tr class="header gt_heading">
 <th colspan="3" class="gt_heading gt_title gt_font_normal gt_bottom_border"><strong>Características de las Variables para el Modelo</strong></th>
 </tr>
 <tr class="odd gt_col_headings">
-<th id="<strong>Variable</strong>" class="gt_col_heading gt_columns_bottom_border gt_left" data-quarto-table-cell-role="th" scope="col"><strong>Variable</strong></th>
-<th id="<strong>Descripción</strong>" class="gt_col_heading gt_columns_bottom_border gt_left" data-quarto-table-cell-role="th" scope="col"><strong>Descripción</strong></th>
-<th id="<strong>Tipo</strong>" class="gt_col_heading gt_columns_bottom_border gt_center" data-quarto-table-cell-role="th" scope="col"><strong>Tipo</strong></th>
+<th id="Variable" class="gt_col_heading gt_columns_bottom_border gt_left" data-quarto-table-cell-role="th" scope="col"><strong>Variable</strong></th>
+<th id="Descripcion" class="gt_col_heading gt_columns_bottom_border gt_left" data-quarto-table-cell-role="th" scope="col"><strong>Descripción</strong></th>
+<th id="Tipo" class="gt_col_heading gt_columns_bottom_border gt_center" data-quarto-table-cell-role="th" scope="col"><strong>Tipo</strong></th>
 </tr>
 </thead>
 <tbody class="gt_table_body">
@@ -875,7 +767,6 @@ using the `.groups` argument.</code></pre>
 </tbody>
 </table>
 
-</div>
 </div>
 </div>
 </div>

@@ -1,0 +1,478 @@
+---
+title: "Modelos"
+format:
+  html:
+    embed-resources: true
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+
+```{r}
+#| output: false
+library(tidymodels)
+library(agua)
+library(h2o)
+library(readxl)
+library(knitr)
+library(rpart.plot)
+library(yardstick)
+library(tidymodels)
+library(xgboost)
+library(lightgbm)
+library(baguette) 
+library(bonsai)
+library(gt)
+library(vip)
+library(doParallel)
+library(knitr)
+
+df <- read_excel("./data/trayectorias.xlsx") %>%
+  select(-c(termina, gol, tiro, termina_tiro, participa_golero,
+              xG , zona_fin,x_fin, presion , match_id , team.name, possession_team.name,
+              possession_team.id)) %>%
+  mutate(exito = factor(exito, levels = c(1, 0), labels = c("1", "0")))
+
+df_split <- initial_split(df)
+train <- training(df_split)
+test <- testing(df_split)
+
+all_cores <- parallel::detectCores(logical = FALSE)
+registerDoParallel(cores = all_cores)
+```
+
+
+# Modelos
+Se proponenen 3 modelos distintos para el problema de clasificación de la variable exito. Uno logistico,  un random forest y  un LightGBM. La idea es usar la regresión logística para entender como influyen los distintos factores en la variable exito sin perder la interpretabilidad de los resultados. Los otros dos se prponen más con la idea de predecir la variable exito usando la información que se tiene en el conjunto de datos. Se eligen estos modelos uno produce menos overfitting(random forest) y otro produce menos error en la validación(LightGBM).
+
+
+## Lasso
+
+Se utiliza inicialmente un modelo de regresión logística como primer enfoque debido a su capacidad para proporcionar una interpretación clara y directa de las relaciones entre las variables predictoras y el resultado. 
+
+```{r}
+set.seed(123)
+
+df_recipe <- recipe(exito ~ ., data = train) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_dummy(all_nominal_predictors())
+
+cv_folds <- vfold_cv(train, v = 5)
+
+metrics <- metric_set(accuracy, sens, spec, roc_auc)
+
+```
+
+```{r}
+lasso_spec <- logistic_reg(
+  penalty = tune(),  
+  mixture = 1       
+) %>% set_engine("glmnet")
+
+lasso_workflow <- workflow() %>%
+  add_model(lasso_spec) %>%
+  add_recipe(df_recipe)
+
+lasso_tune <- tune_grid(
+  lasso_workflow,
+  resamples = cv_folds,
+  grid = 10,  
+  metrics = metrics)
+
+best_model <- lasso_tune  %>% select_best(metric = "roc_auc")
+
+final_lasso_workflow <- finalize_workflow(lasso_workflow, best_model)
+
+lasso_fit <- fit(final_lasso_workflow, data = train)
+```
+
+```{r}
+lasso_fit  %>% 
+  fit(train)  %>% 
+  extract_fit_engine()  %>% 
+  vi(lambda = best_model$penalty) |>
+  ggplot(aes(x = Importance, y = reorder(Variable, Importance), fill = Sign)) +
+  geom_col() +
+  scale_x_continuous(expand = c(0, 0)) +
+  labs(y = NULL)
+```
+
+```{r}
+lasso_fit  %>% autoplot()
+  ```
+
+```{r}
+lasso_tune  %>% autoplot()
+```
+
+### Matriz de Confusion
+```{r}
+lasso_predictions_training <- predict(lasso_fit, new_data = train, type = "class") %>%
+  bind_cols(train) 
+
+lasso_conf_matrix_training <- conf_mat(
+  data = lasso_predictions_training,
+  truth = exito,          
+  estimate = .pred_class  
+)
+
+autoplot(lasso_conf_matrix_training, type = "heatmap") +
+  labs(
+    title = "Matriz de Confusión - LASSO (Entrenamiento)",
+    x = "Clase Predicha",
+    y = "Clase Real"
+  ) +
+  theme_minimal()
+
+```
+
+## Arbol de Decisión
+
+```{r}
+tree_spec <- decision_tree(
+  cost_complexity = tune(),
+  tree_depth = tune()
+) %>%
+  set_engine("rpart") %>%
+  set_mode("classification")
+
+
+tree_workflow <- workflow() %>%
+  add_model(tree_spec) %>%
+  add_recipe(df_recipe)
+
+tree_grid <- grid_regular(
+  cost_complexity(range = c(-3, -1)),  
+  tree_depth(range = c(1, 10)),
+  levels = 20                         
+)
+
+tree_tune <- tune_grid(
+  tree_workflow,
+  resamples = cv_folds,
+  grid = tree_grid,
+  metrics = metrics
+)
+
+best_tree <- select_best(tree_tune, metric = "roc_auc")
+
+final_tree_workflow <- finalize_workflow(tree_workflow, best_tree)
+
+final_tree_fit <- fit(final_tree_workflow, data = train)
+
+final_tree <- extract_fit_engine(final_tree_fit)
+```
+
+```{r}
+rpart.plot(final_tree, main = "Árbol de Decisión Ajustado")
+```
+
+
+```{r}
+autoplot(tree_tune)
+```
+```{r}
+tree_predictions <- predict(final_tree_fit, new_data = train, type = "class") %>%
+  bind_cols(train) 
+
+tree_conf_matrix <- conf_mat(
+  data = tree_predictions,
+  truth = exito,          
+  estimate = .pred_class  
+)
+
+autoplot(tree_conf_matrix, type = "heatmap") +
+  labs(
+    title = "Matriz de Confusión - Árbol de Decisión",
+    x = "Clase Predicha",
+    y = "Clase Real"
+  ) +
+  theme_minimal()
+
+```
+
+## Random Forest
+
+```{r}
+rf_spec <- rand_forest(
+  mtry = tune(),          
+  min_n = tune(),        
+  trees = 500            
+) %>%
+  set_engine("ranger", importance = "impurity") %>%  
+  set_mode("classification")
+
+rf_workflow <- workflow() %>%
+  add_model(rf_spec) %>%
+  add_recipe(df_recipe)
+
+rf_grid <- grid_random(
+  hardhat::extract_parameter_set_dials(rf_spec) %>%
+    update(
+      mtry = mtry(c(1, ncol(train) - 1)),
+      min_n = min_n(c(2, 20))                         
+    ),
+  size = 20  
+)
+
+set.seed(123)
+rf_tune <- tune_grid(
+  rf_workflow,
+  resamples = cv_folds,
+  grid = rf_grid,
+  metrics = metrics
+)
+
+best_rf <- select_best(rf_tune, metric = "roc_auc")
+
+final_rf_workflow <- finalize_workflow(rf_workflow, best_rf)
+
+final_rf_fit <- fit(final_rf_workflow, data = train)
+```
+
+### Visualización de la evolución de las métricas según los parámetros
+
+```{r}
+autoplot(rf_tune) +
+  labs(
+    title = "Evolución de las Métricas - Random Forest",
+    x = "Hiperparámetros",
+    y = "Métrica (ROC AUC, Accuracy, etc.)"
+  ) +
+  theme_minimal()
+```
+
+
+### Matriz de Confusion
+```{r}
+rf_predictions_train <- predict(final_rf_fit, new_data = train, type = "class") %>%
+  bind_cols(train)
+
+rf_conf_matrix_train <- conf_mat(
+  data = rf_predictions_train,
+  truth = exito,
+  estimate = .pred_class
+)
+
+autoplot(rf_conf_matrix_train, type = "heatmap") +
+  labs(
+    title = "Matriz de Confusión - Random Forest (Entrenamiento)",
+    x = "Clase Predicha",
+    y = "Clase Real"
+  ) +
+  theme_minimal()
+```
+
+### Importancia de las variables
+
+```{r}
+final_rf_fit %>%
+  extract_fit_engine() %>%
+  vip::vip(geom = "col", aesthetics = list(fill = "steelblue")) +
+  labs(
+    title = "Importancia de las Variables - Random Forest",
+    x = "Importancia Relativa",
+    y = "Variable"
+  ) +
+  theme_minimal()
+```
+
+
+## LightGBM
+```{r}
+lgbm_spec <- boost_tree(
+  trees = tune(),
+  learn_rate = tune(),
+  tree_depth = tune(),
+  min_n = tune(),
+  loss_reduction = tune()
+) %>% set_engine("lightgbm") %>% set_mode("classification")
+
+lgbm_workflow <- workflow() %>%
+  add_model(lgbm_spec) %>%
+  add_recipe(df_recipe)
+
+lgbm_grid <- grid_random(
+  hardhat::extract_parameter_set_dials(lgbm_spec) %>%
+    update(
+      trees = trees(c(100, 1000)),
+      learn_rate = learn_rate(c(0.01, 0.3)),
+      tree_depth = tree_depth(c(3, 15)),
+      min_n = min_n(c(5, 20)),                   
+      loss_reduction = loss_reduction(c(0, 10))  
+    ),
+  size = 20  
+)
+
+set.seed(123)
+lgbm_tune <- tune_grid(
+  lgbm_workflow,
+  resamples = cv_folds,
+  grid = lgbm_grid,
+  metrics = metrics)
+
+best_lgbm <- select_best(lgbm_tune, metric = "roc_auc")
+
+final_lgbm_workflow <- finalize_workflow(lgbm_workflow, best_lgbm)
+
+final_lgbm_fit <- fit(final_lgbm_workflow, data = train)
+```
+
+### Visualización de la evolución de las métricas según los parámetros
+```{r}
+autoplot(lgbm_tune) +
+  labs(
+    title = "Evolución de las Métricas - LightGBM",
+    x = "Hiperparámetros",
+    y = "Métrica (ROC AUC, Accuracy, etc.)"
+  ) +
+  theme_minimal()
+```
+
+### Matriz de Confusion
+```{r}
+lgbm_predictions_train <- predict(final_lgbm_fit, new_data = train, type = "class") %>%
+  bind_cols(predict(final_lgbm_fit, new_data = train, type = "prob")) %>%
+  bind_cols(train)
+
+lgbm_conf_matrix_train <- conf_mat(
+  data = lgbm_predictions_train,
+  truth = exito,
+  estimate = .pred_class)
+
+autoplot(lgbm_conf_matrix_train, type = "heatmap") +
+  labs(
+    title = "Matriz de Confusión - LightGBM (Entrenamiento)",
+    x = "Clase Predicha",
+    y = "Clase Real"
+  ) +
+  theme_minimal()
+```
+
+
+```{r}
+final_lgbm_fit %>%
+  extract_fit_engine() %>%
+  vip::vip(geom = "col", aesthetics = list(fill = "steelblue")) +
+  labs(
+    title = "Importancia de las Variables - LightGBM",
+    x = "Importancia Relativa",
+    y = "Variable"
+  ) +
+  theme_minimal()
+```
+
+
+```{r}
+lasso_predictions_training <- predict(lasso_fit, new_data = train, type = "class") %>%
+  bind_cols(predict(lasso_fit, new_data = train, type = "prob")) %>%
+  bind_cols(train)
+
+tree_predictions <- predict(final_tree_fit, new_data = train, type = "class") %>%
+  bind_cols(predict(final_tree_fit, new_data = train, type = "prob")) %>%
+  bind_cols(train)
+
+rf_predictions <- predict(final_rf_fit, new_data = train, type = "class") %>%
+  bind_cols(predict(final_rf_fit, new_data = train, type = "prob")) %>%
+  bind_cols(train)
+
+lgbm_predictions_train <- predict(final_lgbm_fit, new_data = train, type = "class") %>%
+  bind_cols(predict(final_lgbm_fit, new_data = train, type = "prob")) %>%
+  bind_cols(train)
+```
+
+
+## Evalución de los modelos
+
+
+```{r}
+calculate_model_metrics <- function(fit, split_data) {
+  preds <- predict(fit, new_data = split_data, type = "class")
+  probs <- predict(fit, new_data = split_data, type = "prob")
+  
+  results <- bind_cols(
+    truth = split_data$exito,
+    predicted = preds$.pred_class,
+    probs
+  )
+  
+  final_metrics <- metric_set(accuracy, sens, spec, roc_auc)
+  
+  metrics_df <- final_metrics(
+    results, 
+    truth = truth, 
+    estimate = predicted,
+    .pred_1
+  )
+  return(metrics_df)
+}
+
+lasso_metrics <- calculate_model_metrics(lasso_fit, train)
+tree_metrics <- calculate_model_metrics(final_tree_fit, train)
+rf_metrics <- calculate_model_metrics(final_rf_fit, train)
+lgbm_metrics <- calculate_model_metrics(final_lgbm_fit, train)
+
+model_performance <- bind_rows(
+  Lasso = lasso_metrics,
+  `Decision Tree` = tree_metrics,
+  `Random Forest` = rf_metrics,
+  LightGBM = lgbm_metrics,
+  .id = "Model"
+) %>% select(Model, .metric, .estimate) %>% 
+  pivot_wider(names_from = .metric, values_from = .estimate)
+
+model_performance %>%
+  gt() %>%
+  fmt_number(
+    columns = c(accuracy, sens, spec, roc_auc),
+    decimals = 3
+  ) %>%
+  cols_label(
+    accuracy = "Accuracy",
+    sens = "Sensitivity",
+    spec = "Specificity",
+    roc_auc = "ROC AUC"
+  ) %>%
+  tab_header(
+    title = "Model Performance Metrics")
+```
+
+
+## Datos de testeo
+
+```{r}
+lasso_metrics <- calculate_model_metrics(lasso_fit, test)
+tree_metrics <- calculate_model_metrics(final_tree_fit, test)
+rf_metrics <- calculate_model_metrics(final_rf_fit, test)
+lgbm_metrics <- calculate_model_metrics(final_lgbm_fit, test)
+
+model_performance <- bind_rows(
+  Lasso = lasso_metrics,
+  `Decision Tree` = tree_metrics,
+  `Random Forest` = rf_metrics,
+  LightGBM = lgbm_metrics,
+  .id = "Model"
+) %>%
+  select(Model, .metric, .estimate) %>%
+  pivot_wider(names_from = .metric, values_from = .estimate)
+
+model_performance %>%
+  gt() %>%
+  fmt_number(
+    columns = c(accuracy, sens, spec, roc_auc),
+    decimals = 3
+  ) %>%
+  cols_label(
+    accuracy = "Accuracy",
+    sens = "Sensitivity",
+    spec = "Specificity",
+    roc_auc = "ROC AUC"
+  ) %>%
+  tab_header(
+    title = "Model Performance Metrics"
+  )
+```
+
+

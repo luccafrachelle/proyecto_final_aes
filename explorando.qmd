@@ -1,6 +1,8 @@
 ---
 title: "Entrega Final de curso"
-format: html
+format:
+  html:
+    embed-resources: true
 author: "Martín Grau Pérez , Lucca Frachelle"
 date: "`r Sys.Date()`"
 execute:
@@ -542,105 +544,4 @@ graf2 %>%
 
 ## Modelos
 Se proponenen 3 modelos distintos para el problema de clasificación de la variable exito. Uno logistico,  un random forest y  un LightGBM. La idea es usar la regresión logística para entender como influyen los distintos factores en la variable exito sin perder la interpretabilidad de los resultados. Los otros dos se prponen más con la idea de predecir la variable exito usando la información que se tiene en el conjunto de datos. Se eligen estos modelos uno produce menos overfitting(random forest) y otro produce menos error en la validación(LightGBM).
-
-```{r}
-#| eval: false
-#| echo: false
-set.seed(123)
-
-log_spec <- logistic_reg() %>% 
-  set_engine("glm") %>% 
-  set_mode("classification")
-
-tree_spec <- decision_tree(cost_complexity = tune(), tree_depth = tune()) %>% 
-  set_engine("rpart") %>% 
-  set_mode("classification")
-
-lgbm_spec <- boost_tree(trees = tune(), learn_rate = tune()) %>% 
-  set_engine("lightgbm") %>% 
-  set_mode("classification")
-
-df_recipe <- recipe(exito ~ ., data = train) %>%
-  step_normalize(all_numeric_predictors()) %>%
-  step_dummy(all_nominal_predictors())
-
-cv_folds <- vfold_cv(train, v = 5)
-
-metrics <- metric_set(accuracy, sens, spec, roc_auc)
-
-```
-
-```{r}
-#| eval: false
-#| echo: false
-logistic_workflow <- workflow() %>%
-  add_model(log_spec) %>%
-  add_recipe(df_recipe)
-
-logistic_results <- fit_resamples(
-  logistic_workflow,
-  resamples = cv_folds,
-  metrics = metrics
-)
-
-logistic_metrics <- collect_metrics(logistic_results) %>%
-  select(.metric, mean, std_err) %>%
-  mutate(model = "Logistic Regression")
-```
-
-
-
-```{r}
-#| eval: false
-#| echo: false
-tree_workflow <- workflow() %>%
-  add_model(tree_spec) %>%
-  add_recipe(df_recipe)
-
-tree_results <- tune_grid(
-  tree_workflow,
-  resamples = cv_folds,
-  grid = 10,
-  metrics = metrics
-)
-
-best_tree_params <- select_best(tree_results, metric = "roc_auc")
-final_tree_workflow <- finalize_workflow(tree_workflow, best_tree_params)
-
-final_tree_results <- fit_resamples(
-  final_tree_workflow,
-  resamples = cv_folds,
-  metrics = metrics
-)
-
-tree_metrics <- collect_metrics(final_tree_results) %>%
-  select(.metric, mean, std_err) %>%
-  mutate(model = "Decision Tree")
-
-
-lgbm_workflow <- workflow() %>%
-  add_model(lgbm_spec) %>%
-  add_recipe(df_recipe)
-
-lgbm_results <- tune_grid(
-  lgbm_workflow,
-  resamples = cv_folds,
-  grid = 10,
-  metrics = metrics
-)
-
-best_lgbm_params <- select_best(lgbm_results, metric = "roc_auc")
-final_lgbm_workflow <- finalize_workflow(lgbm_workflow, best_lgbm_params)
-
-final_lgbm_results <- fit_resamples(
-  final_lgbm_workflow,
-  resamples = cv_folds,
-  metrics = metrics
-)
-
-lgbm_metrics <- collect_metrics(final_lgbm_results) %>%
-  select(.metric, mean, std_err) %>%
-  mutate(model = "LightGBM")
-```
-
 

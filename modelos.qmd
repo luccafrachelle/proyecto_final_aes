@@ -385,8 +385,6 @@ lgbm_predictions_train <- predict(final_lgbm_fit, new_data = train, type = "clas
 
 
 ## Evalución de los modelos
-
-
 ```{r}
 calculate_model_metrics <- function(fit, split_data) {
   preds <- predict(fit, new_data = split_data, type = "class")
@@ -473,6 +471,83 @@ model_performance %>%
   tab_header(
     title = "Model Performance Metrics"
   )
+```
+
+## Distriubución de posiciones iniciales
+```{r}
+df %>%
+  ggplot(aes(x = x_inicio, y = y_inicio)) +
+  geom_bin2d(bins = 15) +
+  scale_fill_gradient(low = "blue", high = "red") + 
+geom_segment(aes(x=0,xend=120,y=0,yend=0))+
+geom_segment(aes(x=0,xend=120,y=80,yend=80))+
+geom_segment(aes(x=0,xend=0,y=0,yend=80))+
+geom_segment(aes(x=120,xend=120,y=0,yend=80))+
+geom_segment(aes(x=60,xend=60,y=0,yend=80))+
+geom_segment(aes(x=0,xend=120,y=62,yend=62))+
+geom_segment(aes(x=0,xend=120,y=18,yend=18))+
+geom_segment(aes(x=0,xend=120,y=30,yend=30))+
+geom_segment(aes(x=0,xend=120,y=50,yend=50))+
+geom_segment(aes(x=18,xend=18,y=0,yend=80))+
+geom_segment(aes(x=39,xend=39,y=0,yend=80))+
+geom_segment(aes(x=102,xend=102,y=0,yend=80))+
+geom_segment(aes(x=81,xend=81,y=0,yend=80)) +
+theme(legend.position = "bottom") + facet_wrap(~exito) + coord_flip() + 
+  labs(title = "Posiciones de inicio segun exito", x = "Coordenada X", y = "Coordenada Y")
+```
+
+## Ver donde se equivoca el Random Forest
+```{r}
+temp = predict(final_rf_fit, new_data = train, type = "class") %>%
+  bind_cols(predict(final_rf_fit, new_data = train, type = "prob")) %>%
+  bind_cols(train)
+
+temp %>% filter(exito != .pred_class) %>%
+  ggplot(aes(x = x_inicio, y = y_inicio)) +
+  geom_bin2d(bins = 15) +
+  scale_fill_gradient(low = "blue", high = "red") + 
+geom_segment(aes(x=0,xend=120,y=0,yend=0))+
+geom_segment(aes(x=0,xend=120,y=80,yend=80))+
+geom_segment(aes(x=0,xend=0,y=0,yend=80))+
+geom_segment(aes(x=120,xend=120,y=0,yend=80))+
+geom_segment(aes(x=60,xend=60,y=0,yend=80))+
+geom_segment(aes(x=0,xend=120,y=62,yend=62))+
+geom_segment(aes(x=0,xend=120,y=18,yend=18))+
+geom_segment(aes(x=0,xend=120,y=30,yend=30))+
+geom_segment(aes(x=0,xend=120,y=50,yend=50))+
+geom_segment(aes(x=18,xend=18,y=0,yend=80))+
+geom_segment(aes(x=39,xend=39,y=0,yend=80))+
+geom_segment(aes(x=102,xend=102,y=0,yend=80))+
+geom_segment(aes(x=81,xend=81,y=0,yend=80)) +
+theme(legend.position = "bottom") +
+  labs(title = "Errores en los datos de entrenamiento") + coord_flip() 
+```
+
+## Errores en el testeo
+```{r}
+temp = predict(final_rf_fit, new_data = test, type = "class") %>%
+  bind_cols(predict(final_rf_fit, new_data = test, type = "prob")) %>%
+  bind_cols(test)
+
+temp %>% filter(exito != .pred_class) %>%
+  ggplot(aes(x = x_inicio, y = y_inicio)) +
+  geom_bin2d(bins = 15) +
+  scale_fill_gradient(low = "blue", high = "red") + 
+geom_segment(aes(x=0,xend=120,y=0,yend=0))+
+geom_segment(aes(x=0,xend=120,y=80,yend=80))+
+geom_segment(aes(x=0,xend=0,y=0,yend=80))+
+geom_segment(aes(x=120,xend=120,y=0,yend=80))+
+geom_segment(aes(x=60,xend=60,y=0,yend=80))+
+geom_segment(aes(x=0,xend=120,y=62,yend=62))+
+geom_segment(aes(x=0,xend=120,y=18,yend=18))+
+geom_segment(aes(x=0,xend=120,y=30,yend=30))+
+geom_segment(aes(x=0,xend=120,y=50,yend=50))+
+geom_segment(aes(x=18,xend=18,y=0,yend=80))+
+geom_segment(aes(x=39,xend=39,y=0,yend=80))+
+geom_segment(aes(x=102,xend=102,y=0,yend=80))+
+geom_segment(aes(x=81,xend=81,y=0,yend=80)) +
+theme(legend.position = "bottom") + facet_wrap(~exito) + coord_flip() +
+  labs(title = "Errores en el testeo", x = "Coordenada X", y = "Coordenada Y")
 ```
 
 

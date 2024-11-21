@@ -256,7 +256,9 @@ ggplot()+geom_segment(aes(x=location.x,xend=end.x,y=loc.y,
 
 
 
+```{r}
 
+```
 ```{r graf zonas,echo=FALSE,fig.cap='División en zonas de la cancha',warning=FALSE,message=FALSE,fig.align='center'}
 #grafz(30)+grafz(3)/grafz(8)
 grid.arrange(grafz(30),grid.arrange(grafz(3),grafz(8),ncol=1),ncol=2)

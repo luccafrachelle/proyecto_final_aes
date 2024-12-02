@@ -13,6 +13,7 @@ execute:
 ```{r}
 #| output: false
 library(tidymodels)
+library(tidyverse)
 library(agua)
 library(h2o)
 library(readxl)
@@ -28,19 +29,15 @@ library(gt)
 library(vip)
 library(doParallel)
 library(knitr)
+library(glmnet)
+library(yardstick)
 
-df <- read_excel("./data/trayectorias.xlsx") %>%
-  select(-c(termina, gol, tiro, termina_tiro, participa_golero,
-              xG , zona_fin,x_fin, presion , match_id , team.name, possession_team.name,
-              possession_team.id)) %>%
+
+df <- read_csv("./data/data.csv")  %>%
   mutate(exito = factor(exito, levels = c(1, 0), labels = c("1", "0")))
+train <- df %>% filter(dataset == "train")
+test <- df %>% filter(dataset == "test")
 
-df_split <- initial_split(df)
-train <- training(df_split)
-test <- testing(df_split)
-
-all_cores <- parallel::detectCores(logical = FALSE)
-registerDoParallel(cores = all_cores)
 ```
 
 
@@ -53,46 +50,23 @@ Se proponenen 3 modelos distintos para el problema de clasificación de la varia
 Se utiliza inicialmente un modelo de regresión logística como primer enfoque debido a su capacidad para proporcionar una interpretación clara y directa de las relaciones entre las variables predictoras y el resultado. 
 
 ```{r}
-set.seed(123)
+lasso = readRDS("./models/base_recipe_lasso_model.rds")
+random_forest = readRDS("./models/base_recipe_random_forest_model.rds")
+lightgbm = readRDS("./models/base_recipe_lightgbm_model.rds")
+decision_tree = readRDS("./models/base_recipe_decision_tree_model.rds")
 
-df_recipe <- recipe(exito ~ ., data = train) %>%
-  step_normalize(all_numeric_predictors()) %>%
-  step_dummy(all_nominal_predictors())
-
-cv_folds <- vfold_cv(train, v = 5)
-
-metrics <- metric_set(accuracy, sens, spec, roc_auc)
+lasso_tune_results <- readRDS("./tune_results/base_recipe_lasso_tune_results.rds")
+random_forest_tune_results <- readRDS("./tune_results/base_recipe_random_forest_tune_results.rds")
+lightgbm_tune_results <- readRDS("./tune_results/base_recipe_lightgbm_tune_results.rds")
+decision_tree_tune_results <- readRDS("./tune_results/base_recipe_decision_tree_tune_results.rds")
 
 ```
 
 ```{r}
-lasso_spec <- logistic_reg(
-  penalty = tune(),  
-  mixture = 1       
-) %>% set_engine("glmnet")
-
-lasso_workflow <- workflow() %>%
-  add_model(lasso_spec) %>%
-  add_recipe(df_recipe)
-
-lasso_tune <- tune_grid(
-  lasso_workflow,
-  resamples = cv_folds,
-  grid = 10,  
-  metrics = metrics)
-
-best_model <- lasso_tune  %>% select_best(metric = "roc_auc")
-
-final_lasso_workflow <- finalize_workflow(lasso_workflow, best_model)
-
-lasso_fit <- fit(final_lasso_workflow, data = train)
-```
-
-```{r}
-lasso_fit  %>% 
+lasso %>% 
   fit(train)  %>% 
   extract_fit_engine()  %>% 
-  vi(lambda = best_model$penalty) |>
+  vi()  %>% 
   ggplot(aes(x = Importance, y = reorder(Variable, Importance), fill = Sign)) +
   geom_col() +
   scale_x_continuous(expand = c(0, 0)) +
@@ -100,17 +74,16 @@ lasso_fit  %>%
 ```
 
 ```{r}
-lasso_fit  %>% autoplot()
+lasso %>% autoplot()
   ```
 
 ```{r}
-lasso_tune  %>% autoplot()
+lasso_tune_results %>% autoplot()
 ```
 
 ### Matriz de Confusion
 ```{r}
-lasso_predictions_training <- predict(lasso_fit, new_data = train, type = "class") %>%
-  bind_cols(train) 
+lasso_predictions_training <- predict(lasso, new_data = train, type = "class")%>% bind_cols(train) 
 
 lasso_conf_matrix_training <- conf_mat(
   data = lasso_predictions_training,
@@ -130,51 +103,17 @@ autoplot(lasso_conf_matrix_training, type = "heatmap") +
 
 ## Arbol de Decisión
 
-```{r}
-tree_spec <- decision_tree(
-  cost_complexity = tune(),
-  tree_depth = tune()
-) %>%
-  set_engine("rpart") %>%
-  set_mode("classification")
 
-
-tree_workflow <- workflow() %>%
-  add_model(tree_spec) %>%
-  add_recipe(df_recipe)
-
-tree_grid <- grid_regular(
-  cost_complexity(range = c(-3, -1)),  
-  tree_depth(range = c(1, 10)),
-  levels = 20                         
-)
-
-tree_tune <- tune_grid(
-  tree_workflow,
-  resamples = cv_folds,
-  grid = tree_grid,
-  metrics = metrics
-)
-
-best_tree <- select_best(tree_tune, metric = "roc_auc")
-
-final_tree_workflow <- finalize_workflow(tree_workflow, best_tree)
-
-final_tree_fit <- fit(final_tree_workflow, data = train)
-
-final_tree <- extract_fit_engine(final_tree_fit)
+```{r} 
+decision_tree %>% extract_fit_engine() %>% rpart.plot(main = "Árbol de Decisión Ajustado")
 ```
 
 ```{r}
-rpart.plot(final_tree, main = "Árbol de Decisión Ajustado")
+autoplot(decision_tree_tune_results)
 ```
 
-
 ```{r}
-autoplot(tree_tune)
-```
-```{r}
-tree_predictions <- predict(final_tree_fit, new_data = train, type = "class") %>%
+tree_predictions <- predict(decision_tree, new_data = train, type = "class") %>%
   bind_cols(train) 
 
 tree_conf_matrix <- conf_mat(
@@ -195,47 +134,11 @@ autoplot(tree_conf_matrix, type = "heatmap") +
 
 ## Random Forest
 
-```{r}
-rf_spec <- rand_forest(
-  mtry = tune(),          
-  min_n = tune(),        
-  trees = 500            
-) %>%
-  set_engine("ranger", importance = "impurity") %>%  
-  set_mode("classification")
-
-rf_workflow <- workflow() %>%
-  add_model(rf_spec) %>%
-  add_recipe(df_recipe)
-
-rf_grid <- grid_random(
-  hardhat::extract_parameter_set_dials(rf_spec) %>%
-    update(
-      mtry = mtry(c(1, ncol(train) - 1)),
-      min_n = min_n(c(2, 20))                         
-    ),
-  size = 20  
-)
-
-set.seed(123)
-rf_tune <- tune_grid(
-  rf_workflow,
-  resamples = cv_folds,
-  grid = rf_grid,
-  metrics = metrics
-)
-
-best_rf <- select_best(rf_tune, metric = "roc_auc")
-
-final_rf_workflow <- finalize_workflow(rf_workflow, best_rf)
-
-final_rf_fit <- fit(final_rf_workflow, data = train)
-```
 
 ### Visualización de la evolución de las métricas según los parámetros
 
 ```{r}
-autoplot(rf_tune) +
+autoplot(random_forest_tune_results) +
   labs(
     title = "Evolución de las Métricas - Random Forest",
     x = "Hiperparámetros",
@@ -247,7 +150,7 @@ autoplot(rf_tune) +
 
 ### Matriz de Confusion
 ```{r}
-rf_predictions_train <- predict(final_rf_fit, new_data = train, type = "class") %>%
+rf_predictions_train <- predict(random_forest, train) %>%
   bind_cols(train)
 
 rf_conf_matrix_train <- conf_mat(
@@ -268,7 +171,7 @@ autoplot(rf_conf_matrix_train, type = "heatmap") +
 ### Importancia de las variables
 
 ```{r}
-final_rf_fit %>%
+random_forest %>%
   extract_fit_engine() %>%
   vip::vip(geom = "col", aesthetics = list(fill = "steelblue")) +
   labs(
@@ -281,48 +184,10 @@ final_rf_fit %>%
 
 
 ## LightGBM
-```{r}
-lgbm_spec <- boost_tree(
-  trees = tune(),
-  learn_rate = tune(),
-  tree_depth = tune(),
-  min_n = tune(),
-  loss_reduction = tune()
-) %>% set_engine("lightgbm") %>% set_mode("classification")
-
-lgbm_workflow <- workflow() %>%
-  add_model(lgbm_spec) %>%
-  add_recipe(df_recipe)
-
-lgbm_grid <- grid_random(
-  hardhat::extract_parameter_set_dials(lgbm_spec) %>%
-    update(
-      trees = trees(c(100, 1000)),
-      learn_rate = learn_rate(c(0.01, 0.3)),
-      tree_depth = tree_depth(c(3, 15)),
-      min_n = min_n(c(5, 20)),                   
-      loss_reduction = loss_reduction(c(0, 10))  
-    ),
-  size = 20  
-)
-
-set.seed(123)
-lgbm_tune <- tune_grid(
-  lgbm_workflow,
-  resamples = cv_folds,
-  grid = lgbm_grid,
-  metrics = metrics)
-
-best_lgbm <- select_best(lgbm_tune, metric = "roc_auc")
-
-final_lgbm_workflow <- finalize_workflow(lgbm_workflow, best_lgbm)
-
-final_lgbm_fit <- fit(final_lgbm_workflow, data = train)
-```
 
 ### Visualización de la evolución de las métricas según los parámetros
 ```{r}
-autoplot(lgbm_tune) +
+autoplot(lightgbm_tune_results) +
   labs(
     title = "Evolución de las Métricas - LightGBM",
     x = "Hiperparámetros",
@@ -333,8 +198,7 @@ autoplot(lgbm_tune) +
 
 ### Matriz de Confusion
 ```{r}
-lgbm_predictions_train <- predict(final_lgbm_fit, new_data = train, type = "class") %>%
-  bind_cols(predict(final_lgbm_fit, new_data = train, type = "prob")) %>%
+lgbm_predictions_train <- predict(lightgbm, train) %>%
   bind_cols(train)
 
 lgbm_conf_matrix_train <- conf_mat(
@@ -353,7 +217,7 @@ autoplot(lgbm_conf_matrix_train, type = "heatmap") +
 
 
 ```{r}
-final_lgbm_fit %>%
+lightgbm %>%
   extract_fit_engine() %>%
   vip::vip(geom = "col", aesthetics = list(fill = "steelblue")) +
   labs(
@@ -366,51 +230,44 @@ final_lgbm_fit %>%
 
 
 ```{r}
-lasso_predictions_training <- predict(lasso_fit, new_data = train, type = "class") %>%
-  bind_cols(predict(lasso_fit, new_data = train, type = "prob")) %>%
+lasso_predictions_training <- predict(lasso, train) %>%
   bind_cols(train)
 
-tree_predictions <- predict(final_tree_fit, new_data = train, type = "class") %>%
-  bind_cols(predict(final_tree_fit, new_data = train, type = "prob")) %>%
+tree_predictions <- predict(decision_tree, train) %>%
   bind_cols(train)
 
-rf_predictions <- predict(final_rf_fit, new_data = train, type = "class") %>%
-  bind_cols(predict(final_rf_fit, new_data = train, type = "prob")) %>%
+rf_predictions <- predict(random_forest, train) %>%
   bind_cols(train)
 
-lgbm_predictions_train <- predict(final_lgbm_fit, new_data = train, type = "class") %>%
-  bind_cols(predict(final_lgbm_fit, new_data = train, type = "prob")) %>%
+lgbm_predictions_train <- predict(lightgbm, train) %>% 
   bind_cols(train)
 ```
 
 
+
 ## Evalución de los modelos
 ```{r}
+final_metrics <- metric_set(accuracy, sens, yardstick::spec, roc_auc)
+
 calculate_model_metrics <- function(fit, split_data) {
-  preds <- predict(fit, new_data = split_data, type = "class")
-  probs <- predict(fit, new_data = split_data, type = "prob")
-  
-  results <- bind_cols(
-    truth = split_data$exito,
-    predicted = preds$.pred_class,
-    probs
-  )
-  
-  final_metrics <- metric_set(accuracy, sens, spec, roc_auc)
+  preds <- predict(fit, new_data = split_data, type = "class") %>%
+    bind_cols(predict(fit, new_data = split_data, type = "prob")) %>%
+    bind_cols(truth = split_data$exito)
   
   metrics_df <- final_metrics(
-    results, 
-    truth = truth, 
-    estimate = predicted,
+    data = preds, 
+    truth = truth,
+    estimate = .pred_class,
     .pred_1
   )
+  
   return(metrics_df)
 }
 
-lasso_metrics <- calculate_model_metrics(lasso_fit, train)
-tree_metrics <- calculate_model_metrics(final_tree_fit, train)
-rf_metrics <- calculate_model_metrics(final_rf_fit, train)
-lgbm_metrics <- calculate_model_metrics(final_lgbm_fit, train)
+lasso_metrics <- calculate_model_metrics(lasso, train)
+tree_metrics <- calculate_model_metrics(decision_tree, train)
+rf_metrics <- calculate_model_metrics(random_forest, train)
+lgbm_metrics <- calculate_model_metrics(lightgbm, train)
 
 model_performance <- bind_rows(
   Lasso = lasso_metrics,
@@ -418,7 +275,8 @@ model_performance <- bind_rows(
   `Random Forest` = rf_metrics,
   LightGBM = lgbm_metrics,
   .id = "Model"
-) %>% select(Model, .metric, .estimate) %>% 
+) %>%
+  select(Model, .metric, .estimate) %>%
   pivot_wider(names_from = .metric, values_from = .estimate)
 
 model_performance %>%
@@ -434,17 +292,19 @@ model_performance %>%
     roc_auc = "ROC AUC"
   ) %>%
   tab_header(
-    title = "Model Performance Metrics")
+    title = "Model Performance Metrics"
+  )
+
 ```
 
 
 ## Datos de testeo
 
 ```{r}
-lasso_metrics <- calculate_model_metrics(lasso_fit, test)
-tree_metrics <- calculate_model_metrics(final_tree_fit, test)
-rf_metrics <- calculate_model_metrics(final_rf_fit, test)
-lgbm_metrics <- calculate_model_metrics(final_lgbm_fit, test)
+lasso_metrics <- calculate_model_metrics(lasso, test)
+tree_metrics <- calculate_model_metrics(decision_tree, test)
+rf_metrics <- calculate_model_metrics(random_forest, test)
+lgbm_metrics <- calculate_model_metrics(lightgbm, test)
 
 model_performance <- bind_rows(
   Lasso = lasso_metrics,
@@ -498,8 +358,8 @@ theme(legend.position = "bottom") + facet_wrap(~exito) + coord_flip() +
 
 ## Ver donde se equivoca el Random Forest
 ```{r}
-temp = predict(final_rf_fit, new_data = train, type = "class") %>%
-  bind_cols(predict(final_rf_fit, new_data = train, type = "prob")) %>%
+temp = predict(random_forest, new_data = train, type = "class") %>%
+  bind_cols(predict(random_forest, new_data = train, type = "prob")) %>%
   bind_cols(train)
 
 temp %>% filter(exito != .pred_class) %>%
@@ -525,8 +385,8 @@ theme(legend.position = "bottom") +
 
 ## Errores en el testeo
 ```{r}
-temp = predict(final_rf_fit, new_data = test, type = "class") %>%
-  bind_cols(predict(final_rf_fit, new_data = test, type = "prob")) %>%
+temp = predict(random_forest, new_data = test, type = "class") %>%
+  bind_cols(predict(random_forest, new_data = test, type = "prob")) %>%
   bind_cols(test)
 
 temp %>% filter(exito != .pred_class) %>%
@@ -551,3 +411,45 @@ theme(legend.position = "bottom") + facet_wrap(~exito) + coord_flip() +
 ```
 
 
+## Interpretabilidad del RandomForest
+
+```{r}
+library(vip)
+library(DALEXtra)
+
+train$exito_num <- as.numeric(train$exito) - 1
+
+explainer_rf <- explain_tidymodels(
+  model = random_forest,
+  data = train %>% select(-exito, -exito_num), 
+  y = train$exito_num,
+  label = "Random Forest",
+  verbose = FALSE
+)
+
+vip_rf <- model_parts(explainer_rf)
+
+```
+
+
+```{r}
+set.seed(1805)
+pdp_neventos <- model_profile(explainer_rf, N = 9000, variables = "n_eventos")
+
+plot(pdp_neventos) + geom_rug()
+```
+
+
+```{r}
+set.seed(1805)
+pdp_vert <- model_profile(explainer_rf, N = 9000, variables = "vert_tot")
+
+plot(pdp_vert) + geom_rug()
+```
+
+```{r}
+set.seed(1805)
+pdp_vert <- model_profile(explainer_rf, N = 9000, variables = "dist.promP")
+
+plot(pdp_vert) + geom_rug()
+```

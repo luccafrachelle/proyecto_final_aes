@@ -19,10 +19,22 @@ library(here)
 library(readxl)
 setwd(here())
 library(StatsBombR)
-library(forcats)
 library(patchwork)
 library(ggcorrplot)
 library(gridExtra)
+library(tidymodels)
+library(agua)
+library(h2o)
+library(knitr)
+library(rpart.plot)
+library(yardstick)
+library(xgboost)
+library(lightgbm)
+library(baguette) 
+library(bonsai)
+library(gt)
+library(vip)
+library(doParallel)
 
 Matches<-readRDS("data/partidos_mundial2022.rds")
 Matches_2023<-readRDS("data/partidos_mundialfem2023.rds")
@@ -259,7 +271,6 @@ ggplot()+geom_segment(aes(x=location.x,xend=end.x,y=loc.y,
 ```
 
 ```{r graf zonas,echo=FALSE,fig.cap='División en zonas de la cancha',warning=FALSE,message=FALSE,fig.align='center'}
-#grafz(30)+grafz(3)/grafz(8)
 grid.arrange(grafz(30),grid.arrange(grafz(3),grafz(8),ncol=1),ncol=2)
 ```
 
@@ -333,25 +344,6 @@ trayectoriasM %>%
 
 ```{r}
 #| output: false
-#| echo: false
-library(tidyverse)
-library(tidymodels)
-library(agua)
-library(h2o)
-library(readxl)
-library(knitr)
-library(rpart.plot)
-library(yardstick)
-library(tidymodels)
-library(xgboost)
-library(lightgbm)
-library(baguette) 
-library(bonsai)
-library(gt)
-library(vip)
-library(doParallel)
-library(knitr)
-
 df <- read_excel("./data/trayectorias.xlsx") %>%
   select(-c(termina, gol, tiro, termina_tiro, participa_golero)) %>%
   mutate(exito = factor(exito, levels = c(1, 0), labels = c("1", "0")))
@@ -690,8 +682,7 @@ autoplot(random_forest_tune_results) +
     title = "Evolución de las Métricas - Random Forest",
     x = "Hiperparámetros",
     y = "Métrica (ROC AUC, Accuracy, etc.)"
-  ) +
-  theme_minimal()
+  ) + theme_minimal()
 ```
 
 
@@ -792,7 +783,7 @@ lgbm_predictions_train <- predict(lightgbm, train) %>%
 
 
 
-## Evalución de los modelos
+## Comparación de los modelos
 ```{r}
 final_metrics <- metric_set(accuracy, sens, yardstick::spec, roc_auc)
 
@@ -841,8 +832,9 @@ model_performance %>%
   tab_header(
     title = "Model Performance Metrics"
   )
-
 ```
+
+
 
 
 ## Datos de testeo
@@ -995,3 +987,19 @@ pdp_vert <- model_profile(explainer_rf, N = 9000, variables = "dist.promP")
 
 plot(pdp_vert) + geom_rug()
 ```
+
+```{r}
+temp = predict(random_forest, new_data = test, type = "class") %>%
+  bind_cols(predict(random_forest, new_data = test, type = "prob")) %>%
+  bind_cols(test)
+
+temp = temp  %>% mutate(exito = as.numeric(exito) - 1)
+```
+
+
+### % error por equipo
+```{r}
+a = temp  %>% group_by(team.name , mundial) %>% summarise(cant = n() , error=mean(exito!=.pred_class)) %>% arrange(desc(error))
+```
+
+

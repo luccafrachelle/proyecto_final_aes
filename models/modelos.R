@@ -11,7 +11,7 @@ registerDoParallel(cores = parallel::detectCores(logical = FALSE))
 
 df <- read_excel("./data/trayectorias.xlsx") %>%
   select(-c(termina, gol, tiro, termina_tiro, participa_golero,
-            xG, zona_fin, x_fin, presion, match_id, team.name,
+            xG, zona_fin, x_fin, presion, match_id,
             possession_team.name, possession_team.id)) %>%
   mutate(
     exito = factor(exito, levels = c(1, 0), labels = c("1", "0")),

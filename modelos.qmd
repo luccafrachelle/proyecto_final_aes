@@ -31,9 +31,11 @@ library(doParallel)
 library(knitr)
 library(glmnet)
 library(yardstick)
+library(vip)
+library(DALEXtra)
 
 
-df <- read_csv("./data/data.csv")  %>%
+df <- read_csv("./models/data.csv")  %>%
   mutate(exito = factor(exito, levels = c(1, 0), labels = c("1", "0")))
 train <- df %>% filter(dataset == "train")
 test <- df %>% filter(dataset == "test")
@@ -55,10 +57,10 @@ random_forest = readRDS("./models/base_recipe_random_forest_model.rds")
 lightgbm = readRDS("./models/base_recipe_lightgbm_model.rds")
 decision_tree = readRDS("./models/base_recipe_decision_tree_model.rds")
 
-lasso_tune_results <- readRDS("./tune_results/base_recipe_lasso_tune_results.rds")
-random_forest_tune_results <- readRDS("./tune_results/base_recipe_random_forest_tune_results.rds")
-lightgbm_tune_results <- readRDS("./tune_results/base_recipe_lightgbm_tune_results.rds")
-decision_tree_tune_results <- readRDS("./tune_results/base_recipe_decision_tree_tune_results.rds")
+lasso_tune_results <- readRDS("./models/base_recipe_lasso_tune_results.rds")
+random_forest_tune_results <- readRDS("./models/base_recipe_random_forest_tune_results.rds")
+lightgbm_tune_results <- readRDS("./models/base_recipe_lightgbm_tune_results.rds")
+decision_tree_tune_results <- readRDS("./models/base_recipe_decision_tree_tune_results.rds")
 
 ```
 
@@ -414,9 +416,6 @@ theme(legend.position = "bottom") + facet_wrap(~exito) + coord_flip() +
 ## Interpretabilidad del RandomForest
 
 ```{r}
-library(vip)
-library(DALEXtra)
-
 train$exito_num <- as.numeric(train$exito) - 1
 
 explainer_rf <- explain_tidymodels(
@@ -426,9 +425,7 @@ explainer_rf <- explain_tidymodels(
   label = "Random Forest",
   verbose = FALSE
 )
-
-vip_rf <- model_parts(explainer_rf)
-
+vip_rf <- readRDS("./models/vip_rf.rds")
 ```
 
 

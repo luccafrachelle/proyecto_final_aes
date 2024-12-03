@@ -161,3 +161,59 @@ random_forest_F = readRDS("./models/recipe2_random_forest_model.rds")
 random_forest_tune_results_M <- readRDS("./models/recipe1_random_forest_tune_results.rds")
 random_forest_tune_results_F <- readRDS("./models/recipe2_random_forest_tune_results.rds")
 
+
+
+rf_predictions_testM <- predict(random_forest_M, test_M) %>%
+  bind_cols(test_M)
+
+rf_conf_matrix_testM <- conf_mat(
+  data = rf_predictions_testM,
+  truth = exito,
+  estimate = .pred_class
+)
+a<-autoplot(rf_conf_matrix_testM, type = "heatmap") +
+  labs(
+    title = "Matriz de Confusión - Random Forest (Mundial Masculino)",
+    x = "Clase Predicha",
+    y = "Clase Real"
+  ) +
+  theme_minimal()+theme(legend.position = 'none')
+c<-random_forest_M %>%
+  extract_fit_engine() %>%
+  vip::vip(geom = "col", aesthetics = list(fill = "steelblue")) +
+  labs(
+    title = "Importancia de las Variables - Random Forest (Mundial Masculino)",
+    x = "Importancia Relativa",
+    y = "Variable"
+  ) +
+  theme_minimal()
+
+
+
+rf_predictions_testF <- predict(random_forest_F, test_F) %>%
+  bind_cols(test_F)
+
+rf_conf_matrix_testF <- conf_mat(
+  data = rf_predictions_testF,
+  truth = exito,
+  estimate = .pred_class
+)
+b<-autoplot(rf_conf_matrix_testF, type = "heatmap") +
+  labs(
+    title = "Matriz de Confusión - Random Forest (Mundial Femenino)",
+    x = "Clase Predicha",
+    y = "Clase Real"
+  ) +
+  theme_minimal()
+d<-random_forest_F %>%
+  extract_fit_engine() %>%
+  vip::vip(geom = "col", aesthetics = list(fill = "steelblue")) +
+  labs(
+    title = "Importancia de las Variables - Random Forest (Mundial Femenino)",
+    x = "Importancia Relativa",
+    y = "Variable"
+  ) +
+  theme_minimal()
+a+b
+c+d
+

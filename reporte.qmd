@@ -577,6 +577,7 @@ df <- read_csv("./models/data.csv")  %>%
 train <- df %>% filter(dataset == "train")
 test <- df %>% filter(dataset == "test")
 
+ranking<-rbind(read_excel("data/ranking fifa.xlsx",sheet = 'Fem') %>% mutate(mundial='F'),read_excel("data/ranking fifa.xlsx",sheet = 'Masc') %>% mutate(mundial='M'))
 ```
 
 
@@ -999,7 +1000,9 @@ temp = temp  %>% mutate(exito = as.numeric(exito) - 1)
 
 ### % error por equipo
 ```{r}
-a = temp  %>% group_by(team.name , mundial) %>% summarise(cant = n() , error=mean(exito!=.pred_class)) %>% arrange(desc(error))
+a = temp  %>% group_by(team.name , mundial) %>% summarise(cant = n() , error=mean(exito!=.pred_class)) %>% arrange(desc(error)) %>% 
+  left_join(ranking,by=c("team.name","mundial"))
+
 ```
 
 

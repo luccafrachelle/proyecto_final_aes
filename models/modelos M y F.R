@@ -77,7 +77,7 @@ control <- control_race(
   save_workflow = TRUE)
 
 set.seed(123)
-race_results_M <- workflow_set %>%
+race_results_M <- workflow_set_M %>%
   workflow_map(
     "tune_race_anova",
     seed = 123,
@@ -123,16 +123,30 @@ lapply(
 best_params_M <- race_results_M %>%
   extract_workflow_set_result('recipe1_random_forest') %>% 
   select_best(metric = "roc_auc")
+best_params_M <- race_results_M %>%
+  extract_workflow_set_result('recipe1_lightgbm') %>% 
+  select_best(metric = "roc_auc")
 best_params_F <- race_results_F %>%
   extract_workflow_set_result('recipe2_random_forest') %>% 
+  select_best(metric = "roc_auc")
+best_params_F <- race_results_F %>%
+  extract_workflow_set_result('recipe2_lightgbm') %>% 
   select_best(metric = "roc_auc")
 
 random_forest_M <- race_results_M %>%
   extract_workflow('recipe1_random_forest') %>%
   finalize_workflow(best_params_M) %>%
   fit(data = train_M)
+lightgbm_M <- race_results_M %>%
+  extract_workflow('recipe1_lightgbm') %>%
+  finalize_workflow(best_params_M) %>%
+  fit(data = train_M)
 random_forest_F <- race_results_F %>%
   extract_workflow('recipe2_random_forest') %>%
+  finalize_workflow(best_params_F) %>%
+  fit(data = train_F)
+lightgbm_F <- race_results_F %>%
+  extract_workflow('recipe2_lightgbm') %>%
   finalize_workflow(best_params_F) %>%
   fit(data = train_F)
 
@@ -148,6 +162,13 @@ explainer_rf1 <- explain_tidymodels(
   label = "Random Forest",
   verbose = FALSE
 )
+explainer_lgbm1 <- explain_tidymodels(
+  model = lightgbm_M,
+  data = train_M %>% select(-exito, -exito_num), 
+  y = train_M$exito_num,
+  label = "Light GBM",
+  verbose = FALSE
+)
 explainer_rf2 <- explain_tidymodels(
   model = random_forest_F,
   data = train_F %>% select(-exito, -exito_num), 
@@ -155,7 +176,13 @@ explainer_rf2 <- explain_tidymodels(
   label = "Random Forest",
   verbose = FALSE
 )
-
+explainer_lgbm2 <- explain_tidymodels(
+  model = lightgbm_F,
+  data = train_F %>% select(-exito, -exito_num), 
+  y = train_F$exito_num,
+  label = "Light GBM",
+  verbose = FALSE
+)
 random_forest_M = readRDS("./models/recipe1_random_forest_model.rds")
 random_forest_F = readRDS("./models/recipe2_random_forest_model.rds")
 random_forest_tune_results_M <- readRDS("./models/recipe1_random_forest_tune_results.rds")
@@ -217,3 +244,84 @@ d<-random_forest_F %>%
 a+b
 c+d
 
+
+
+lgbm_predictions_testM <- predict(lightgbm_M, test_M) %>%
+  bind_cols(test_M)
+
+lgbm_conf_matrix_testM <- conf_mat(
+  data = lgbm_predictions_testM,
+  truth = exito,
+  estimate = .pred_class
+)
+a<-autoplot(lgbm_conf_matrix_testM, type = "heatmap") +
+  labs(
+    title = "Matriz de Confusión - LGBM (Mundial Masculino)",
+    x = "Clase Predicha",
+    y = "Clase Real"
+  ) +
+  theme_minimal()+theme(legend.position = 'none')
+c<-lightgbm_M %>%
+  extract_fit_engine() %>%
+  vip::vip(geom = "col", aesthetics = list(fill = "steelblue")) +
+  labs(
+    title = "Importancia de las Variables - LGBM (Mundial Masculino)",
+    x = "Importancia Relativa",
+    y = "Variable"
+  ) +
+  theme_minimal()
+
+
+
+lgbm_predictions_testF <- predict(lightgbm_F, test_F) %>%
+  bind_cols(test_F)
+
+lgbm_conf_matrix_testF <- conf_mat(
+  data = lgbm_predictions_testF,
+  truth = exito,
+  estimate = .pred_class
+)
+b<-autoplot(lgbm_conf_matrix_testF, type = "heatmap") +
+  labs(
+    title = "Matriz de Confusión - LGBM (Mundial Femenino)",
+    x = "Clase Predicha",
+    y = "Clase Real"
+  ) +
+  theme_minimal()
+d<-lightgbm_F %>%
+  extract_fit_engine() %>%
+  vip::vip(geom = "col", aesthetics = list(fill = "steelblue")) +
+  labs(
+    title = "Importancia de las Variables - LGBM (Mundial Femenino)",
+    x = "Importancia Relativa",
+    y = "Variable"
+  ) +
+  theme_minimal()
+a+b
+c+d
+
+
+
+
+
+
+model_specs2 <- list(
+
+  lightgbm = boost_tree(
+    trees = tune(), learn_rate = tune(), tree_depth = tune(),
+    min_n = tune(), loss_reduction = tune()
+  ) %>%
+    set_engine("lightgbm") %>%
+    set_mode("classification")
+  
+)
+workflow_set_M <- workflow_set(
+  preproc = list(recipe1 = df_recipe_M#,
+                 #recipe2 = df_recipe_F
+  ),
+  models = model_specs2)
+workflow_set_F <- workflow_set(
+  preproc = list(#recipe1 = df_recipe_M
+    recipe2 = df_recipe_F
+  ),
+  models = model_specs2)

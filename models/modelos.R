@@ -14,9 +14,7 @@ df <- read_excel("./data/trayectorias.xlsx") %>%
             xG, zona_fin, x_fin, presion, match_id,
             possession_team.name, possession_team.id)) %>%
   mutate(
-    exito = factor(exito, levels = c(1, 0), labels = c("1", "0")),
-    grupo = ifelse(x_inicio < 50, "Grupo A", "Grupo B")
-  )
+    exito = factor(exito, levels = c(1, 0), labels = c("1", "0")))
 
 set.seed(123)
 df_split <- initial_split(df)
@@ -49,11 +47,12 @@ model_specs <- list(
     set_mode("classification")
 )
 
+
 workflow_set <- workflow_set(
   preproc = list(base_recipe = df_recipe),
   models = model_specs)
 
-cv_folds <- vfold_cv(train, v = 5, strata = exito)
+cv_folds <- vfold_cv(train, v = 5)
 
 metrics <- metric_set(accuracy, roc_auc, sens, yardstick::spec)
 
@@ -65,7 +64,6 @@ control <- control_race(
 set.seed(123)
 race_results <- workflow_set %>%
   workflow_map(
-    "tune_race_anova",
     seed = 123,
     resamples = cv_folds,
     grid = 20,
@@ -122,3 +120,11 @@ train <- train %>% mutate(dataset = "train")
 test <- test %>% mutate(dataset = "test")
 df_marked <- bind_rows(train, test)
 write.csv(df_marked, "./models/data.csv", row.names = FALSE)
+
+
+
+
+
+
+
+

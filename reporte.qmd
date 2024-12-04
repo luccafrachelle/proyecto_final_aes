@@ -570,6 +570,14 @@ library(glmnet)
 library(yardstick)
 library(vip)
 library(DALEXtra)
+library(tidymodels)
+library(readxl)
+library(doParallel)
+library(finetune)
+library(bonsai)
+library(vip)
+library(DALEXtra)
+library(here)
 
 
 df <- read_csv("./models/data.csv")  %>%
@@ -618,20 +626,20 @@ lasso %>% autoplot()
   ```
 
 ```{r}
-lasso_tune_results %>% autoplot()
+lasso_tune_results %>% autoplot() 
 ```
 
 ### Matriz de Confusion
 ```{r}
-lasso_predictions_training <- predict(lasso, new_data = train, type = "class")%>% bind_cols(train) 
+lasso_predictions_test <- predict(lasso, new_data = test, type = "class") %>% bind_cols(test) 
 
-lasso_conf_matrix_training <- conf_mat(
-  data = lasso_predictions_training,
+lasso_conf_matrix_test <- conf_mat(
+  data = lasso_predictions_test,
   truth = exito,          
   estimate = .pred_class  
 )
 
-autoplot(lasso_conf_matrix_training, type = "heatmap") +
+autoplot(lasso_conf_matrix_test, type = "heatmap") +
   labs(
     title = "Matriz de Confusión - LASSO (Entrenamiento)",
     x = "Clase Predicha",
@@ -1000,9 +1008,74 @@ temp = temp  %>% mutate(exito = as.numeric(exito) - 1)
 
 ### % error por equipo
 ```{r}
-a = temp  %>% group_by(team.name , mundial) %>% summarise(cant = n() , error=mean(exito!=.pred_class)) %>% arrange(desc(error)) %>% 
-  left_join(ranking,by=c("team.name","mundial"))
+temp  %>% group_by(team.name , mundial) %>% summarise(cant = n() , error=mean(exito!=.pred_class)) %>% arrange(desc(error)) %>% 
+  left_join(ranking,by=c("team.name","mundial"))  %>% kable()
+```
+
+### Modelos por mundial
+```{r}
+random_forest_m = readRDS("./models/recipe1_random_forest_model.rds")
+random_forest_tune_results_m = readRDS("./models/recipe1_random_forest_tune_results.rds")
+random_forest_f = readRDS("./models/recipe2_random_forest_model.rds")
+random_forest_tune_results_f = readRDS("./models/recipe2_random_forest_tune_results.rds")
+```
+
+### Visualización de la evolución de las métricas según los parámetros
+
+```{r}
+m = autoplot(random_forest_tune_results_m) +
+  labs(
+    title = "Evolución de las Métricas - Random Forest",
+    x = "Hiperparámetros",
+    y = "Métrica (ROC AUC, Accuracy, etc.)"
+  ) + theme_minimal() + theme(legend.position = "none")
+
+f = autoplot(random_forest_tune_results_f) +
+  labs(
+    title = "Evolución de las Métricas - Random Forest",
+    x = "Hiperparámetros",
+    y = "Métrica (ROC AUC, Accuracy, etc.)"
+  ) + theme_minimal() + theme(legend.position = "none")
+
+m/f
+```
+
+```{r}
 
 ```
 
+
+### Matriz de Confusion
+```{r}
+rf_predictions_train <- predict(random_forest, train) %>%
+  bind_cols(train)
+
+rf_conf_matrix_train <- conf_mat(
+  data = rf_predictions_train,
+  truth = exito,
+  estimate = .pred_class
+)
+
+autoplot(rf_conf_matrix_train, type = "heatmap") +
+  labs(
+    title = "Matriz de Confusión - Random Forest (Entrenamiento)",
+    x = "Clase Predicha",
+    y = "Clase Real"
+  ) +
+  theme_minimal()
+```
+
+### Importancia de las variables
+
+```{r}
+random_forest %>%
+  extract_fit_engine() %>%
+  vip::vip(geom = "col", aesthetics = list(fill = "steelblue")) +
+  labs(
+    title = "Importancia de las Variables - Random Forest",
+    x = "Importancia Relativa",
+    y = "Variable"
+  ) +
+  theme_minimal()
+```
 

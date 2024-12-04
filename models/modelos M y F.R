@@ -79,7 +79,6 @@ control <- control_race(
 set.seed(123)
 race_results_M <- workflow_set_M %>%
   workflow_map(
-    "tune_race_anova",
     seed = 123,
     resamples = cv_folds_M,
     grid = 20,
@@ -95,7 +94,6 @@ race_results_F <- workflow_set_F %>%
     grid = 20,
     metrics = metrics,
     control = control,
-    verbose = TRUE
   )
 
 dir.create("./models", showWarnings = FALSE)

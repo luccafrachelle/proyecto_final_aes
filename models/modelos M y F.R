@@ -43,14 +43,14 @@ model_specs <- list(
 
   random_forest = rand_forest(mtry = tune(), min_n = tune(), trees = 500) %>%
     set_engine("ranger", importance = "impurity") %>%
-    set_mode("classification") #,
+    set_mode("classification") ,
   
-  # lightgbm = boost_tree(
-  #   trees = tune(), learn_rate = tune(), tree_depth = tune(),
-  #   min_n = tune(), loss_reduction = tune()
-  # ) %>%
-  #   set_engine("lightgbm") %>%
-  #   set_mode("classification")
+  lightgbm = boost_tree(
+    trees = tune(), learn_rate = tune(), tree_depth = tune(),
+    min_n = tune(), loss_reduction = tune()
+  ) %>%
+    set_engine("lightgbm") %>%
+    set_mode("classification")
 
 )
 
@@ -88,12 +88,12 @@ race_results_M <- workflow_set_M %>%
   )
 race_results_F <- workflow_set_F %>%
   workflow_map(
-    "tune_race_anova",
     seed = 123,
     resamples = cv_folds_F,
     grid = 20,
     metrics = metrics,
     control = control,
+    verbose = TRUE
   )
 
 dir.create("./models", showWarnings = FALSE)

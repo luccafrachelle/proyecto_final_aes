@@ -243,6 +243,10 @@ a+b
 c+d
 
 
+lightgbm_M = readRDS("./models/recipe1_lightgbm_model.rds")
+lightgbm_F = readRDS("./models/recipe2_lightgbm_model.rds")
+lgbm_results_M <- readRDS("./models/recipe1_lightgbm_tune_results.rds")
+lgbm_results_F <- readRDS("./models/recipe2_lightgbm_tune_results.rds")
 
 lgbm_predictions_testM <- predict(lightgbm_M, test_M) %>%
   bind_cols(test_M)

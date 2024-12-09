@@ -385,29 +385,30 @@ Tanto las trayectorias en las que el rival logra recuperar la pelota así como a
 ```{r}
 #| echo: false
 variables_info <- data.frame(
-  Variable = c("possession", "period", "possession_team.id", "possession_team.name", 
-               "team.name", "x_inicio", "y_inicio", "x_fin", "y_fin", "n_eventos", 
+  Variable = c("possession","tiempo", "period", "possession_team.id", "possession_team.name", 
+               "team.name","n", "x_inicio", "y_inicio", "x_fin", "y_fin", "n_eventos", 
                "n_pases", "n_pasesC", "n_traslados", "prom_av_p", "prom_av_t", 
                "n_jugadores", "n_centros", "n_cdf", "n_pases_arearival", 
                "n_ingresos_arearival", "inicia_golero", "resultado", "zona_inicio", 
-               "zona_fin", "xG", "vel_media_p", "vel_media_c", "exito"),
+               "zona_fin", "xG", "vel_media_p", "vel_media_c","mundial","vert_tot","horiz_tot","dist.promP","dist.promC","dist.medP","dist.medC","presion","n_eq", "exito"),
   
-  Descripcion = c("Posesión del balón", "Período del partido", "ID del equipo en posesión",
-                  "Nombre del equipo en posesión", "Nombre del equipo", "Coordenada X de inicio",
-                  "Coordenada Y de inicio", "Coordenada X de fin", "Coordenada Y de fin",
-                  "Número de eventos", "Número de pases", "Número de pases completados",
-                  "Número de traslados", "Promedio de avance en pase", "Promedio de avance en traslado",
-                  "Número de jugadores en la jugada", "Número de centros", "Número de centros fallidos",
-                  "Número de pases al área rival", "Número de ingresos al área rival",
+  Descripcion = c("ID de la posesión","Duración en segs de la jugada", "Período del partido", "ID del equipo en posesión",
+                  "Nombre del equipo en posesión", "Nombre del equipo","Cantidad de acciones de la jugada", "Coordenada X de inicio de la jugada",
+                  "Coordenada Y de inicio de la jugada", "Coordenada X de fin de la jugada", "Coordenada Y de fin de la jugada",
+                  "Número de eventos distintos", "Número de pases", "Número de pases completados",
+                  "Número de traslados", "Promedio de avance por pase realizado", "Promedio de avance por traslado realizado",
+                  "Número de jugadores que participan en la jugada", "Cantidad de centros", "Cantidad de cambios de frente",
+                  "Número de pases dentro del área rival", "Número de ingresos al área rival",
                   "Si la jugada inicia con el golero", "Estado del marcador al momento de la jugada",
-                  "Zona de inicio", "Zona de fin", "Ni idea", 
-                  "Velocidad media en pase", "Velocidad media en conducción", "Resultado de éxito"),
+                  "Zona de inicio de la jugada", "Zona de fin de la jugada", "Probabilidad de gol de la jugada (Expected Goal)", 
+                  "Velocidad media de los pases", "Velocidad media de los traslados","Mundial al que pertenece el partido","Verticalidad total de la posesión","Horizaontalidad total de la posesión","Distancia promedio de los pases","Distancia promedio de los trasldos","Distancia mediana de los pases","Distancia mediana de los traslados","Cantidad de acciones que se realizan bajo presión del rival","Cantidad de acciones del equipo que tiene la posesión","Éxito (o no) de la posesión"),
   
   Tipo = c("Numérica", "Categórica", "Numérica", "Categórica", "Categórica", "Numérica",
            "Numérica", "Numérica", "Numérica", "Numérica", "Numérica", "Numérica", 
            "Numérica", "Numérica", "Numérica", "Numérica", "Numérica", "Numérica",
            "Numérica", "Numérica", "Binaria", "Categórica", "Categórica", "Categórica", 
-           "Numérica", "Numérica", "Numérica", "Binaria")
+           "Numérica", "Numérica", "Numérica","Númerica","Númerica","Binaria","Númerica","Númerica","Númerica","Númerica","Númerica","Númerica","Númerica","Númerica" ,"Binaria"), 
+  Rango=c("2:283","0:137.71","1:4","","","","2:146","0.4:120.5","0:79.9","0.1:120","0:79.9","1:11","0:51","0:51","0:38","-30.5:104.9","-17.4:56.9","1:17","0:3","0:4","0:3","0:2","0:no incia golero, 1:incia golero","'Empatando', 'Ganando','Perdiendo'","1:30","1:30","0:0.92805","-0.72:1067.5","0:2275.0","-119.6:116.4","-79.90:79.40","0:108.08","0:62.614","0:108.06","0:62.614","0:23","1:142","0: no exito, 1: éxito","")
 )
 
 
@@ -444,6 +445,7 @@ variables_info %>%
     table.border.top.width = px(3),
     table.border.bottom.width = px(3)
   )
+
 ```
 
 ## EDA

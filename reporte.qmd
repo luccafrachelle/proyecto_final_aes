@@ -408,7 +408,7 @@ variables_info <- data.frame(
            "Numérica", "Numérica", "Numérica", "Numérica", "Numérica", "Numérica",
            "Numérica", "Numérica", "Binaria", "Categórica", "Categórica", "Categórica", 
            "Numérica", "Numérica", "Numérica","Númerica","Númerica","Binaria","Númerica","Númerica","Númerica","Númerica","Númerica","Númerica","Númerica","Númerica" ,"Binaria"), 
-  Rango=c("2:283","0:137.71","1:4","","","","2:146","0.4:120.5","0:79.9","0.1:120","0:79.9","1:11","0:51","0:51","0:38","-30.5:104.9","-17.4:56.9","1:17","0:3","0:4","0:3","0:2","0:no incia golero, 1:incia golero","'Empatando', 'Ganando','Perdiendo'","1:30","1:30","0:0.92805","-0.72:1067.5","0:2275.0","-119.6:116.4","-79.90:79.40","0:108.08","0:62.614","0:108.06","0:62.614","0:23","1:142","0: no exito, 1: éxito","")
+  Rango=c("2:283","0:137.71","1:4","","","","2:146","0.4:120.5","0:79.9","0.1:120","0:79.9","1:11","0:51","0:51","0:38","-30.5:104.9","-17.4:56.9","1:17","0:3","0:4","0:3","0:2","0: no inicia golero, 1: inicia golero","'Empatando', 'Ganando','Perdiendo'","1:30","1:30","0:0.92805","-0.72:1067.5","0:2275","M='Masculino',F='Femenino'","-119.6:116.4","-79.90:79.40","0:108.08","0:62.614","0:108.06","0:62.614","0:23","1:142","0: no éxito, 1: éxito")
 )
 
 
@@ -421,7 +421,8 @@ variables_info %>%
   cols_label(
     Variable = md("**Variable**"),
     Descripcion = md("**Descripción**"),
-    Tipo = md("**Tipo**")
+    Tipo = md("**Tipo**"),
+    Rango = md("**Rango**")
   ) %>%
   tab_style(
     style = cell_borders(
@@ -437,7 +438,7 @@ variables_info %>%
   ) %>%
   cols_align(
     align = "center",
-    columns = Tipo
+    columns = c(Tipo)
   ) %>%
   tab_options(
     table.width = pct(100),
@@ -986,6 +987,21 @@ plot(pdp_neventos) + geom_rug()
 
 
 ```{r}
+df %>% ggplot()+
+  geom_point(aes(vert_tot,horiz_tot,color=mundial))+
+  geom_vline(xintercept = 0,linetype='dashed')+geom_hline(yintercept = 0,linetype='dashed')+
+  scale_color_brewer(palette='Set1')
+df %>% 
+  group_by(team.name,mundial) %>% 
+  summarise(v=median(vert_tot),h=median(horiz_tot),.groups = "drop") %>%
+  ggplot()+geom_point(aes(v,h,color=mundial))+
+  geom_vline(xintercept = 19.4,linetype='dashed')+
+  geom_hline(yintercept = 0.325,linetype='dashed')+
+  geom_text(aes(v,h,label=ifelse(abs(h)>3|abs(v)>25,as.character(team.name),""),color=mundial),hjust=0,vjust=0)+
+  scale_color_brewer(palette='Set1')+
+  labs(x='Verticalidad promedio',y='Horizontalidad promedio')+
+  theme_bw()
+
 set.seed(1805)
 pdp_vert <- model_profile(explainer_rf, N = 9000, variables = "vert_tot")
 

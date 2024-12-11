@@ -963,6 +963,10 @@ theme(legend.position = "bottom") + facet_wrap(~exito) + coord_flip() +
 
 
 ## Interpretabilidad del RandomForest
+El Aprendizaje Estadístico Interpretable busca enmarcar los resultados de las predicciones en un contexto de interpretación y comprensión de los mecanismos de dichos valores predichos en función de los predictores. Concretamente, en el presente estudio, se busca estudiar las características y cuales son las variables que puedan estar afectando en algún sentido los valores que nos devuelve el RF analizado. 
+En una primera instancia se busca analizar las relaciones entre las variables predictoras más significativas calculadas en los puntos anteriores a través del Partial Dependence Plot que nos da las predicciones promedio para el rango de valores que toma la variable predictora en la muestra. De esta manera, respecto a la verticalidad y horizontalidad total de las jugadas vemos claramente como 
+
+
 
 ```{r}
 train$exito_num <- as.numeric(train$exito) - 1
@@ -987,9 +991,9 @@ plot(pdp_neventos) + geom_rug()
 
 
 ```{r}
-df %>% ggplot()+
+df %>% filter(dataset=='train') %>% ggplot()+
   geom_point(aes(vert_tot,horiz_tot,color=mundial))+
-  geom_vline(xintercept = 0,linetype='dashed')+geom_hline(yintercept = 0,linetype='dashed')+
+  geom_vline(xintercept = 0,linetype='dashed')+geom_hline(yintercept = 0,linetype='dashed')+facet_wrap(~exito)+
   scale_color_brewer(palette='Set1')
 df %>% 
   group_by(team.name,mundial) %>% 
@@ -999,7 +1003,7 @@ df %>%
   geom_hline(yintercept = 0.325,linetype='dashed')+
   geom_text(aes(v,h,label=ifelse(abs(h)>3|abs(v)>25,as.character(team.name),""),color=mundial),hjust=0,vjust=0)+
   scale_color_brewer(palette='Set1')+
-  labs(x='Verticalidad promedio',y='Horizontalidad promedio')+
+  labs(x='Verticalidad promedio',y='Horizontalidad promedio')+#facet_wrap(~exito)+
   theme_bw()
 
 set.seed(1805)

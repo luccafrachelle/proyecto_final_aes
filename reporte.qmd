@@ -18,7 +18,7 @@ library(devtools)
 library(here)
 library(readxl)
 setwd(here())
-library(StatsBombR)
+#library(StatsBombR)
 library(patchwork)
 library(ggcorrplot)
 library(gridExtra)
@@ -626,7 +626,7 @@ lasso %>%
 
 ```{r}
 lasso %>% autoplot()
-  ```
+```
 
 ```{r}
 lasso_tune_results %>% autoplot() 

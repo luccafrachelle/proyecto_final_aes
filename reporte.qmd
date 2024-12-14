@@ -372,7 +372,7 @@ La variable éxito se define a partir de la categorización de las jugadas:
 
 -   Si la mayoría de las acciones se realizan bajo presión del rival y pese a ello se logra mantener la posesión
 
--    Si la secuencia logra llegar hasta el área rival
+-   Si la secuencia logra llegar hasta el área rival
 
 -   Si la posesión comienza en campo propio y logra llevar al tercio final con al menos 3 acciones
 
@@ -547,9 +547,6 @@ graf2 %>%
 
 Se proponen 3 modelos distintos para el problema de clasificación de la variable *éxito*. Un modelo logístico, un Random Forest (RF) y un LightGBM (LGBM). La idea es usar la regresión logística para entender como influyen los distintos factores en la variable *éxito* sin perder la interpretabilidad de los resultados. Los otros dos se proponen con la idea de predecir dicha variable usando la información que se tiene en el conjunto de datos. Se eligen estos modelos uno produce menos sobreajuste (RF) mientras que el otro produce un menor error en la validación (LGBM).
 
-
-
-
 ```{r}
 #| output: false
 library(tidymodels)
@@ -591,14 +588,13 @@ test <- df %>% filter(dataset == "test")
 ranking<-rbind(read_excel("data/ranking fifa.xlsx",sheet = 'Fem') %>% mutate(mundial='F'),read_excel("data/ranking fifa.xlsx",sheet = 'Masc') %>% mutate(mundial='M'))
 ```
 
-
 # Modelos
-Se proponenen 3 modelos distintos para el problema de clasificación de la variable exito. Uno logistico,  un random forest y  un LightGBM. La idea es usar la regresión logística para entender como influyen los distintos factores en la variable exito sin perder la interpretabilidad de los resultados. Los otros dos se prponen más con la idea de predecir la variable exito usando la información que se tiene en el conjunto de datos. Se eligen estos modelos uno produce menos overfitting(random forest) y otro produce menos error en la validación(LightGBM).
 
+Se proponenen 3 modelos distintos para el problema de clasificación de la variable exito. Uno logistico, un random forest y un LightGBM. La idea es usar la regresión logística para entender como influyen los distintos factores en la variable exito sin perder la interpretabilidad de los resultados. Los otros dos se prponen más con la idea de predecir la variable exito usando la información que se tiene en el conjunto de datos. Se eligen estos modelos uno produce menos overfitting(random forest) y otro produce menos error en la validación(LightGBM).
 
 ## Lasso
 
-Se utiliza inicialmente un modelo de regresión logística como primer enfoque debido a su capacidad para proporcionar una interpretación clara y directa de las relaciones entre las variables predictoras y el resultado. 
+Se utiliza inicialmente un modelo de regresión logística como primer enfoque debido a su capacidad para proporcionar una interpretación clara y directa de las relaciones entre las variables predictoras y el resultado.
 
 ```{r}
 lasso = readRDS("./models/base_recipe_lasso_model.rds")
@@ -633,6 +629,7 @@ lasso_tune_results %>% autoplot()
 ```
 
 ### Matriz de Confusion
+
 ```{r}
 lasso_predictions_test <- predict(lasso, new_data = test, type = "class") %>% bind_cols(test) 
 
@@ -654,8 +651,7 @@ autoplot(lasso_conf_matrix_test, type = "heatmap") +
 
 ## Arbol de Decisión
 
-
-```{r} 
+```{r}
 decision_tree %>% extract_fit_engine() %>% rpart.plot(main = "Árbol de Decisión Ajustado")
 ```
 
@@ -685,7 +681,6 @@ autoplot(tree_conf_matrix, type = "heatmap") +
 
 ## Random Forest
 
-
 ### Visualización de la evolución de las métricas según los parámetros
 
 ```{r}
@@ -697,8 +692,8 @@ autoplot(random_forest_tune_results) +
   ) + theme_minimal()
 ```
 
-
 ### Matriz de Confusion
+
 ```{r}
 rf_predictions_train <- predict(random_forest, train) %>%
   bind_cols(train)
@@ -732,10 +727,10 @@ random_forest %>%
   theme_minimal()
 ```
 
-
 ## LightGBM
 
 ### Visualización de la evolución de las métricas según los parámetros
+
 ```{r}
 autoplot(lightgbm_tune_results) +
   labs(
@@ -747,6 +742,7 @@ autoplot(lightgbm_tune_results) +
 ```
 
 ### Matriz de Confusion
+
 ```{r}
 lgbm_predictions_train <- predict(lightgbm, train) %>%
   bind_cols(train)
@@ -765,7 +761,6 @@ autoplot(lgbm_conf_matrix_train, type = "heatmap") +
   theme_minimal()
 ```
 
-
 ```{r}
 lightgbm %>%
   extract_fit_engine() %>%
@@ -777,7 +772,6 @@ lightgbm %>%
   ) +
   theme_minimal()
 ```
-
 
 ```{r}
 lasso_predictions_training <- predict(lasso, train) %>%
@@ -793,9 +787,8 @@ lgbm_predictions_train <- predict(lightgbm, train) %>%
   bind_cols(train)
 ```
 
-
-
 ## Comparación de los modelos
+
 ```{r}
 final_metrics <- metric_set(accuracy, sens, yardstick::spec, roc_auc)
 
@@ -846,9 +839,6 @@ model_performance %>%
   )
 ```
 
-
-
-
 ## Datos de testeo
 
 ```{r}
@@ -885,6 +875,7 @@ model_performance %>%
 ```
 
 ## Distriubución de posiciones iniciales
+
 ```{r}
 df %>%
   ggplot(aes(x = x_inicio, y = y_inicio)) +
@@ -908,6 +899,7 @@ theme(legend.position = "bottom") + facet_wrap(~exito) + coord_flip() +
 ```
 
 ## Ver donde se equivoca el Random Forest
+
 ```{r}
 temp = predict(random_forest, new_data = train, type = "class") %>%
   bind_cols(predict(random_forest, new_data = train, type = "prob")) %>%
@@ -935,6 +927,7 @@ theme(legend.position = "bottom") +
 ```
 
 ## Errores en el testeo
+
 ```{r}
 temp = predict(random_forest, new_data = test, type = "class") %>%
   bind_cols(predict(random_forest, new_data = test, type = "prob")) %>%
@@ -961,12 +954,9 @@ theme(legend.position = "bottom") + facet_wrap(~exito) + coord_flip() +
   labs(title = "Errores en el testeo", x = "Coordenada X", y = "Coordenada Y")
 ```
 
-
 ## Interpretabilidad del RandomForest
-El Aprendizaje Estadístico Interpretable busca enmarcar los resultados de las predicciones en un contexto de interpretación y comprensión de los mecanismos de dichos valores predichos en función de los predictores. Concretamente, en el presente estudio, se busca estudiar las características y cuales son las variables que puedan estar afectando en algún sentido los valores que nos devuelve el RF analizado. 
-En una primera instancia se busca analizar las relaciones entre las variables predictoras más significativas calculadas en los puntos anteriores a través del Partial Dependence Plot que nos da las predicciones promedio para el rango de valores que toma la variable predictora en la muestra. De esta manera, respecto a la verticalidad y horizontalidad total de las jugadas vemos claramente como 
 
-
+El Aprendizaje Estadístico Interpretable busca enmarcar los resultados de las predicciones en un contexto de interpretación y comprensión de los mecanismos de dichos valores predichos en función de los predictores. Concretamente, en el presente estudio, se busca estudiar las características y cuales son las variables que puedan estar afectando en algún sentido los valores que nos devuelve el RF analizado. En una primera instancia se busca analizar las relaciones entre las variables predictoras más significativas calculadas en los puntos anteriores a través del Partial Dependence Plot que nos da las predicciones promedio para el rango de valores que toma la variable predictora en la muestra. De esta manera, respecto a la verticalidad y horizontalidad total de las jugadas vemos claramente como a menor verticalidad de la jugada (en valor absoluto), mayor probabilidad de éxito en promedio mientras que a mayor horizontalidad (en valor absoluto) mayor probabilidad de éxito. Si bien en este último caso se cuenta con menor cantidad de observaciones en los extremos de la variable predictora analizada, esto es coherente con el resultado anteriormente mencionado en el sentido que en las jugadas *menos verticales*, se tiende a arriesgar menos en el sentido de perder la posesión de la pelota. Generalmente, los pases y las conducciones de pelota hacia adelante implican un mayor riesgo de perder la posesión ya que suelen encontrarse mayor cantidad de defensores del equipo rival.
 
 ```{r}
 train$exito_num <- as.numeric(train$exito) - 1
@@ -981,14 +971,12 @@ explainer_rf <- explain_tidymodels(
 vip_rf <- readRDS("./models/vip_rf.rds")
 ```
 
-
 ```{r}
 set.seed(1805)
-pdp_neventos <- model_profile(explainer_rf, N = 9000, variables = "n_eventos")
+pdp_neventos <- model_profile(explainer_rf, N = nrow(df), variables = "n_eventos")
 
 plot(pdp_neventos) + geom_rug()
 ```
-
 
 ```{r}
 df %>% filter(dataset=='train') %>% ggplot()+
@@ -1007,9 +995,11 @@ df %>%
   theme_bw()
 
 set.seed(1805)
-pdp_vert <- model_profile(explainer_rf, N = 9000, variables = "vert_tot")
+pdp_vert <- model_profile(explainer_rf, N = nrow(df), variables = "vert_tot")
+pdp_horiz <- model_profile(explainer_rf, N = nrow(df), variables = "horiz_tot")
 
 plot(pdp_vert) + geom_rug()
+plot(pdp_horiz) + geom_rug()
 ```
 
 ```{r}
@@ -1027,14 +1017,15 @@ temp = predict(random_forest, new_data = test, type = "class") %>%
 temp = temp  %>% mutate(exito = as.numeric(exito) - 1)
 ```
 
-
 ### % error por equipo
+
 ```{r}
 temp  %>% group_by(team.name , mundial) %>% summarise(cant = n() , error=mean(exito!=.pred_class)) %>% arrange(desc(error)) %>% 
   left_join(ranking,by=c("team.name","mundial"))  %>% kable()
 ```
 
 ### Modelos por mundial
+
 ```{r}
 random_forest_m = readRDS("./models/recipe1_random_forest_model.rds")
 random_forest_tune_results_m = readRDS("./models/recipe1_random_forest_tune_results.rds")
@@ -1066,8 +1057,8 @@ m/f
 
 ```
 
-
 ### Matriz de Confusion
+
 ```{r}
 rf_predictions_train <- predict(random_forest, train) %>%
   bind_cols(train)
@@ -1100,4 +1091,3 @@ random_forest %>%
   ) +
   theme_minimal()
 ```
-

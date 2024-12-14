@@ -632,9 +632,6 @@ graf2 %>%
 
 ```
 
-## Modelos
-
-Se proponen 3 modelos distintos para el problema de clasificación de la variable *éxito*. Un modelo logístico, un Random Forest (RF) y un LightGBM (LGBM). La idea es usar la regresión logística para entender como influyen los distintos factores en la variable *éxito* sin perder la interpretabilidad de los resultados. Los otros dos se proponen con la idea de predecir dicha variable usando la información que se tiene en el conjunto de datos. Se eligen estos modelos uno produce menos sobreajuste (RF) mientras que el otro produce un menor error en la validación (LGBM).
 
 ```{r}
 #| output: false
@@ -695,24 +692,33 @@ lasso_tune_results <- readRDS("./models/base_recipe_lasso_tune_results.rds")
 random_forest_tune_results <- readRDS("./models/base_recipe_random_forest_tune_results.rds")
 lightgbm_tune_results <- readRDS("./models/base_recipe_lightgbm_tune_results.rds")
 decision_tree_tune_results <- readRDS("./models/base_recipe_decision_tree_tune_results.rds")
-
 ```
 
 ```{r}
 lasso %>% 
   fit(train)  %>% 
   extract_fit_engine()  %>% 
-  vi()  %>% 
+  vi()  %>% head(10)  %>% 
   ggplot(aes(x = Importance, y = reorder(Variable, Importance), fill = Sign)) +
   geom_col() +
   scale_x_continuous(expand = c(0, 0)) +
-  labs(y = NULL)
+  labs(y = NULL) + labs(title = "Importancia de las variables (Top 10)")
 ```
+
+Llama la atencion que los dos primeros coeficentes sean n y n_eq y que tengna signos diferentes. Esto se debe a que son buenas predicotras pero estan correlacionadas.
+
+```{r}
+df  %>% ggplot(aes(x = n, y = n_eq)) + geom_point() + 
+  labs(title = "Cantidad de jugadas vs cantidad de jugadas del equipo" , y = "Cantidad de eventos del equipo", x = "Cantidad de eventos")
+```
+
+De alguna forma se estan compensando los efectos , como se vio en la visualizacion de la proporción de eventos por equipo vs cantidad de eventos totales.
 
 ```{r}
 lasso %>% autoplot()
 ```
 
+Las tres variables mas importantes estan relacionadas con la cantidad de eventos. Lo que no llama la atención ya que condice con lo que se vio en el EDA
 ```{r}
 lasso_tune_results %>% autoplot() 
 ```
@@ -727,30 +733,95 @@ lasso_conf_matrix_test <- conf_mat(
   truth = exito,          
   estimate = .pred_class  
 )
-
 autoplot(lasso_conf_matrix_test, type = "heatmap") +
   labs(
     title = "Matriz de Confusión - LASSO (Entrenamiento)",
     x = "Clase Predicha",
     y = "Clase Real"
   ) +
-  theme_minimal()
+  theme_minimal() + scale_fill_gradient(low = "white", high = "steelblue")
 
 ```
+
+Aunque es modelo sencillo, el modelo da buenos resultados, lo que nos motiva a probar más modelos , para mejorar aun mas el rendimiento.
+
+```{r}
+final_metrics <- metric_set(accuracy, sens, yardstick::spec, roc_auc)
+
+predict(lasso, test, type = "class") %>%
+  bind_cols(predict(lasso, test, type = "prob")) %>%
+  bind_cols(truth = test$exito) %>%
+  final_metrics(truth = truth, estimate = .pred_class, .pred_1) %>%
+  mutate(
+    metric = case_when(
+      .metric == "accuracy" ~ "Accuracy",
+      .metric == "sens" ~ "Sensitivity",
+      .metric == "spec" ~ "Specificity",
+      .metric == "roc_auc" ~ "AUC"
+    ), .estimate = round(.estimate, 3))  %>%
+  select(Metric = metric, Value = .estimate)  %>% kable()
+```
+
+
 
 ## Arbol de Decisión
 
 ```{r}
-decision_tree %>% extract_fit_engine() %>% rpart.plot(main = "Árbol de Decisión Ajustado")
+original_tree <- rpart(
+  formula = exito ~ ., 
+  data = train %>% select(-c(dataset, exito_num)), 
+  control = rpart.control(cp = 0) 
+)
+
+pruned_tree <- prune(original_tree, cp = original_tree$cptable[which(original_tree$frame$var == "<leaf>")[2] -1 , "CP"])
+
 ```
+
+```{r}
+rpart.plot(
+  pruned_tree,
+  main = "Árbol Podado (Profundidad 3, Datos Sin Escalar)"
+)
+```
+
+Como primer idea se ajusta un arbol relativamente chico con la idea de ver como estan interactuando las variables. Como se puede observan con una profundidad bastante chica logra sperar las jugadas exitosas de loas que no. 
+
+Este arbol chico no deja algunas cosas intersantes para resaltar:
+
+- El árbol de decisión inicia evaluando la variable `n_eventos`, que es el factor principal para predecir el resultado. Si `n_eventos` es mayor o igual a 6, se toma la rama izquierda; de lo contrario, la derecha.
+
+- En la rama izquierda (`n_eventos >= 6`), el siguiente factor es `nzonas`. Cuando `nzonas` es mayor o igual a 3, aumenta la probabilidad de éxito (`1`). Si es menor, la probabilidad de éxito disminuye.
+
+- En la rama derecha (`n_eventos < 6`), el modelo considera `vert_tot`. Si `vert_tot >= 50`, se evalúa `dist.promP`, donde valores menores a 2.8 aumentan la probabilidad de éxito.
+
+- Si `vert_tot < 50`, se analiza nuevamente `n_eventos`. Si es mayor o igual a 4, la probabilidad de éxito depende de `vert_tot < -42`; de lo contrario, la probabilidad de fracaso (`0`) aumenta.
+
+- Las variables clave en el modelo son `n_eventos`, `vert_tot`, `nzonas`, y `dist.promP`, con interacciones específicas que combinan estos factores para predecir el resultado.
+
+Luego de esto se tunea el modelo para obtener mejores hiperparámetros y se ajusta de nuevo. Como resultado, se obtiene un árbol de decisión más profundo que permite predecir mejor el resultado de las jugadas.
 
 ```{r}
 autoplot(decision_tree_tune_results)
 ```
 
+Los hiperparámetros que se eligen para el árbol de decisión final son los siguientes:
+
 ```{r}
-tree_predictions <- predict(decision_tree, new_data = train, type = "class") %>%
-  bind_cols(train) 
+decision_tree_tune_results %>% select_best(metric = "roc_auc")  %>% select(-4)  %>% kable()
+```
+
+La elección de los hiperparámetros se eligieron tommando en cuenta la curva de ROC AUC.
+
+### Árbol de Decisión Final
+```{r}
+decision_tree %>% extract_fit_engine() %>% rpart.plot(main = "Árbol de Decisión Final")
+```
+
+### Matriz de Confusion
+
+```{r}
+tree_predictions <- predict(decision_tree, new_data = test, type = "class") %>%
+  bind_cols(test) 
 
 tree_conf_matrix <- conf_mat(
   data = tree_predictions,
@@ -760,12 +831,29 @@ tree_conf_matrix <- conf_mat(
 
 autoplot(tree_conf_matrix, type = "heatmap") +
   labs(
-    title = "Matriz de Confusión - Árbol de Decisión",
+    title = "Matriz de Confusión - Árbol de Decisión (Test)",
     x = "Clase Predicha",
     y = "Clase Real"
   ) +
-  theme_minimal()
+  theme_minimal() + scale_fill_gradient(low = "white", high = "steelblue")
+```
 
+Se observa que el árbol mejora un poco la performance respecto al la lasso. Sobretodo por que captura interacciones que no se pueden capturar en un modelo lineal.
+```{r}
+final_metrics <- metric_set(accuracy, sens, yardstick::spec, roc_auc)
+
+predict(decision_tree, test, type = "class") %>%
+  bind_cols(predict(decision_tree, test, type = "prob")) %>%
+  bind_cols(truth = test$exito) %>%
+  final_metrics(truth = truth, estimate = .pred_class, .pred_1) %>%
+  mutate(
+    metric = case_when(
+      .metric == "accuracy" ~ "Accuracy",
+      .metric == "sens" ~ "Sensitivity",
+      .metric == "spec" ~ "Specificity",
+      .metric == "roc_auc" ~ "AUC"
+    ), .estimate = round(.estimate, 3))  %>% 
+  select(Metric = metric, Value = .estimate)  %>% kable()
 ```
 
 ## Random Forest
@@ -778,30 +866,38 @@ autoplot(random_forest_tune_results) +
     title = "Evolución de las Métricas - Random Forest",
     x = "Hiperparámetros",
     y = "Métrica (ROC AUC, Accuracy, etc.)"
-  ) + theme_minimal()
+  ) 
+```
+
+De igual manera, se eligen los hiperparámetros que mejoren la curva de ROC AUC.
+La elección de los hiperparámetros es la siguiente:
+
+```{r}
+random_forest_tune_results %>% select_best(metric = "roc_auc")  %>% select(-3)  %>% kable()
 ```
 
 ### Matriz de Confusion
 
 ```{r}
-rf_predictions_train <- predict(random_forest, train) %>%
-  bind_cols(train)
+rf_predictions_test <- predict(random_forest, test) %>%
+  bind_cols(test)
 
-rf_conf_matrix_train <- conf_mat(
-  data = rf_predictions_train,
+rf_conf_matrix_test <- conf_mat(
+  data = rf_predictions_test,
   truth = exito,
   estimate = .pred_class
 )
 
-autoplot(rf_conf_matrix_train, type = "heatmap") +
+autoplot(rf_conf_matrix_test, type = "heatmap") +
   labs(
-    title = "Matriz de Confusión - Random Forest (Entrenamiento)",
+    title = "Matriz de Confusión - Random Forest (Test)",
     x = "Clase Predicha",
     y = "Clase Real"
   ) +
-  theme_minimal()
+  theme_minimal() + scale_fill_gradient(low = "white", high = "steelblue")
 ```
 
+El modelo mejora la performance respecto al lasso y al árbol de decisión.
 ### Importancia de las variables
 
 ```{r}
@@ -816,6 +912,25 @@ random_forest %>%
   theme_minimal()
 ```
 
+Como no se puede visualizar las interacciones de las variables por la naturaleza del modelo, se visualizan las variables que tienen mayor importancia. Las que coinciden con las que eligen el árbol de decisión final.
+
+```{r}
+final_metrics <- metric_set(accuracy, sens, yardstick::spec, roc_auc)
+
+predict(random_forest, test, type = "class") %>%
+  bind_cols(predict(random_forest, test, type = "prob")) %>%
+  bind_cols(truth = test$exito) %>%
+  final_metrics(truth = truth, estimate = .pred_class, .pred_1) %>%
+  mutate(
+    metric = case_when(
+      .metric == "accuracy" ~ "Accuracy",
+      .metric == "sens" ~ "Sensitivity",
+      .metric == "spec" ~ "Specificity",
+      .metric == "roc_auc" ~ "AUC"
+    ), .estimate = round(.estimate, 3))  %>% 
+  select(Metric = metric, Value = .estimate)  %>% kable()
+```
+
 ## LightGBM
 
 ### Visualización de la evolución de las métricas según los parámetros
@@ -826,30 +941,37 @@ autoplot(lightgbm_tune_results) +
     title = "Evolución de las Métricas - LightGBM",
     x = "Hiperparámetros",
     y = "Métrica (ROC AUC, Accuracy, etc.)"
-  ) +
-  theme_minimal()
+  ) 
+```
+
+De igual manera, se eligen los hiperparámetros que mejoren la curva de ROC AUC.
+La elección de los hiperparámetros es la siguiente:
+
+```{r}
+lightgbm_tune_results %>% select_best(metric = "roc_auc")  %>% select(-6)  %>% kable()
 ```
 
 ### Matriz de Confusion
 
 ```{r}
-lgbm_predictions_train <- predict(lightgbm, train) %>%
-  bind_cols(train)
+lgbm_predictions_test <- predict(lightgbm, test) %>%
+  bind_cols(test)
 
-lgbm_conf_matrix_train <- conf_mat(
-  data = lgbm_predictions_train,
+lgbm_conf_matrix_test <- conf_mat(
+  data = lgbm_predictions_test,
   truth = exito,
   estimate = .pred_class)
 
-autoplot(lgbm_conf_matrix_train, type = "heatmap") +
+autoplot(lgbm_conf_matrix_test, type = "heatmap") +
   labs(
-    title = "Matriz de Confusión - LightGBM (Entrenamiento)",
+    title = "Matriz de Confusión - LightGBM (Test)",
     x = "Clase Predicha",
     y = "Clase Real"
   ) +
-  theme_minimal()
+  theme_minimal() + scale_fill_gradient(low = "white", high = "steelblue")
 ```
 
+El modelo mejora la performance respecto al resto de modelos , aunque la mejora respecto al random forest es muy pequeña.
 ```{r}
 lightgbm %>%
   extract_fit_engine() %>%
@@ -861,6 +983,26 @@ lightgbm %>%
   ) +
   theme_minimal()
 ```
+
+De igual forma que en el random forest, se visualizan las variables que tienen mayor importancia. Donde las variables con mayor importancia coinciden con las que eligen el árbol de decisión final y el random forest.
+
+```{r}
+final_metrics <- metric_set(accuracy, sens, yardstick::spec, roc_auc)
+
+predict(lightgbm, test, type = "class") %>%
+  bind_cols(predict(lightgbm, test, type = "prob")) %>%
+  bind_cols(truth = test$exito) %>%
+  final_metrics(truth = truth, estimate = .pred_class, .pred_1) %>%
+  mutate(
+    metric = case_when(
+      .metric == "accuracy" ~ "Accuracy",
+      .metric == "sens" ~ "Sensitivity",
+      .metric == "spec" ~ "Specificity",
+      .metric == "roc_auc" ~ "AUC"
+    ), .estimate = round(.estimate, 3))  %>% 
+  select(Metric = metric, Value = .estimate)  %>% kable()
+```
+
 
 ```{r}
 lasso_predictions_training <- predict(lasso, train) %>%
@@ -928,40 +1070,6 @@ model_performance %>%
   )
 ```
 
-## Datos de testeo
-
-```{r}
-lasso_metrics <- calculate_model_metrics(lasso, test)
-tree_metrics <- calculate_model_metrics(decision_tree, test)
-rf_metrics <- calculate_model_metrics(random_forest, test)
-lgbm_metrics <- calculate_model_metrics(lightgbm, test)
-
-model_performance <- bind_rows(
-  Lasso = lasso_metrics,
-  `Decision Tree` = tree_metrics,
-  `Random Forest` = rf_metrics,
-  LightGBM = lgbm_metrics,
-  .id = "Model"
-) %>%
-  select(Model, .metric, .estimate) %>%
-  pivot_wider(names_from = .metric, values_from = .estimate)
-
-model_performance %>%
-  gt() %>%
-  fmt_number(
-    columns = c(accuracy, sens, spec, roc_auc),
-    decimals = 3
-  ) %>%
-  cols_label(
-    accuracy = "Accuracy",
-    sens = "Sensitivity",
-    spec = "Specificity",
-    roc_auc = "ROC AUC"
-  ) %>%
-  tab_header(
-    title = "Model Performance Metrics"
-  )
-```
 
 ## Distriubución de posiciones iniciales
 
@@ -1120,8 +1228,25 @@ temp = temp  %>% mutate(exito = as.numeric(exito) - 1)
 ### % error por equipo
 
 ```{r}
-temp  %>% group_by(team.name , mundial) %>% summarise(cant = n() , error=mean(exito!=.pred_class)) %>% arrange(desc(error)) %>% 
-  left_join(ranking,by=c("team.name","mundial"))  %>% kable()
+temp = temp  %>% group_by(team.name , mundial) %>% summarise(cant = n() , error=mean(exito!=.pred_class)) %>% arrange(desc(error)) %>% 
+  left_join(ranking,by=c("team.name","mundial"))  %>% 
+  mutate(error = 1 - round(error,4)) 
+```
+
+```{r}
+temp  %>% ggplot(aes(x = team.name, y = error)) + geom_bar(stat = "identity") + labs(y = "% error por equipo", x = "Equipo")  + theme_bw() + 
+  coord_flip() + facet_wrap(~mundial)
+```
+
+```{r}
+temp  %>% ggplot(aes(x = Ranking, y = error)) + geom_point() + labs(y = "Erorr", x = "Ranking")  + theme_bw() + 
+   facet_wrap(~mundial) + labs(title = "Error por equipo por mundial")
+```
+
+```{r}
+temp  %>% ggplot(aes(x = cant, y = error)) + geom_point() + 
+  labs(y = "Erorr", x = "Cantidad de jugadas" , title = "Error por equipo por mundial") + theme_bw() + 
+  facet_wrap(~mundial)
 ```
 
 ### Modelos por mundial
@@ -1141,21 +1266,18 @@ m = autoplot(random_forest_tune_results_m) +
     title = "Evolución de las Métricas - Random Forest",
     x = "Hiperparámetros",
     y = "Métrica (ROC AUC, Accuracy, etc.)"
-  ) + theme_minimal() + theme(legend.position = "none")
+  )  + theme(legend.position = "none")
 
 f = autoplot(random_forest_tune_results_f) +
   labs(
     title = "Evolución de las Métricas - Random Forest",
     x = "Hiperparámetros",
     y = "Métrica (ROC AUC, Accuracy, etc.)"
-  ) + theme_minimal() + theme(legend.position = "none")
+  )  + theme(legend.position = "none")
 
 m/f
 ```
 
-```{r}
-
-```
 
 ### Matriz de Confusion
 

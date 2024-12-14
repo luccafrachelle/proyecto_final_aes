@@ -99,7 +99,7 @@ race_results_F <- workflow_set_F %>%
 dir.create("./models", showWarnings = FALSE)
 
 lapply(
-  race_results_F$wflow_id,
+  race_results_M$wflow_id,
   function(model_id) {
     tuning_results <- race_results_F %>%
       extract_workflow_set_result(model_id)
@@ -110,6 +110,26 @@ lapply(
       select_best(metric = "roc_auc")
     
     model <- race_results_F %>%
+      extract_workflow(model_id) %>%
+      finalize_workflow(best_params) %>%
+      fit(data = train_F)
+    
+    saveRDS(model, file = file.path("./models", paste0(model_id, "_model.rds")))
+  }
+)
+
+lapply(
+  race_results_M$wflow_id,
+  function(model_id) {
+    tuning_results <- race_results_M %>%
+      extract_workflow_set_result(model_id)
+    
+    saveRDS(tuning_results, file = file.path("./models", paste0(model_id, "_tune_results.rds")))
+    
+    best_params <- tuning_results %>%
+      select_best(metric = "roc_auc")
+    
+    model <- race_results_M %>%
       extract_workflow(model_id) %>%
       finalize_workflow(best_params) %>%
       fit(data = train_F)

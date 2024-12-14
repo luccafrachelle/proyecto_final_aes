@@ -468,10 +468,7 @@ Se observa una dispersión mayor en la diferencia en el eje X en las jugadas exi
 df  %>% ggplot(aes( x = exito, y = diff_y)) + geom_violin(fill = "skyblue") + labs(y = "Diferencia Y")
 ```
 
-
 En este caso el comportamiento no es diferente entre las jugadas que son exitosas y las que no.
-
-
 
 ```{r}
 df  %>% ggplot(aes( x = diff_x, y = diff_y)) + geom_hex() + labs(y = "Diferencia Y" , title = "Distribución de la diferencia en Y entre las jugadas exitosas y no exitosas") + facet_wrap(~exito)
@@ -501,6 +498,7 @@ df  %>% ggplot(aes(x = vert_tot , y = `dist.promP`)) + geom_hex() + facet_wrap(~
 ```
 
 En las jugadas exitosas, se observa una mayor concentración de pases con distancias promedio moderadas (20-40) y una verticalidad más dispersa, lo que sugiere que las jugadas exitosas tienden a tener una distancio promedio ne pases menor que en las no exitosas. Aunque tanto las jugadas exitosas como las no exitosas se concentran en verticalidades positivas , esto parece natural con el deporte.
+
 ```{r}
 #| echo: false
 df %>%
@@ -536,6 +534,7 @@ df %>%
 Se observa que la mayoría de las jugadas están concentradas en una cantidad relativamente pequeña de jugadas, independientemente de si son exitosas o no. En el rango donde se concentran la mayor cantidad de jugadas (entre 0 y 50), las jugadas exitosas muestran una menor proporción de participación del equipo que tiene la pelota, en comparación con las jugadas no exitosas. Además, se nota que, a medida que aumenta el número de jugadas, la proporción de participación del equipo que tiene la pelota tiende a estabilizarse cerca de 1, particularmente en las jugadas exitosas. Por otro lado, la densidad más alta se encuentra en jugadas con pocas repeticiones, como lo refleja el gradiente de color, indicando que las observaciones más frecuentes corresponden a situaciones menos complejas. Esto sugiere que el éxito de las jugadas podría estar influenciado por un número limitado de interacciones o decisiones rápidas en contextos menos densos de jugadas.
 
 Este punto es muy interesane ya que por un lado mayor variedad de eventos mayor es la proporcion de éxito, sin embargo las jugadas se conentran en poco eventos. Lo que de alguna forma da la pauta que las jugadas exitosas son aquellas que hace de todo un poco en pa cantidad de eventos. Lo que naturalmente hace interesante ver la duración de las jugadas.
+
 ```{r}
 df %>%
   mutate(tiempo_bin = cut(tiempo, breaks = seq(min(tiempo), max(tiempo), by = 10), include.lowest = TRUE),
@@ -562,13 +561,13 @@ df %>%
   ) 
 ```
 
- En las jugadas exitosas, se observa un incremento constante en el promedio de eventos a medida que aumenta el tiempo, comenzando alrededor de 5 eventos y alcanzando más de 7 en los intervalos de mayor duración. Por otro lado, las jugadas no exitosas tienen un promedio de eventos más bajo, comenzando cerca de 4 y mostrando un aumento más gradual e irregular. Además, la frecuencia de jugadas (representada por el tamaño y color de los puntos) disminuye notablemente conforme el tiempo aumenta, indicando que las jugadas más largas son menos comunes en ambos casos. Estos patrones sugieren que las jugadas exitosas tienden a ser más complejas y dinámicas, involucrando un mayor número de eventos en comparación con las no exitosas.
+En las jugadas exitosas, se observa un incremento constante en el promedio de eventos a medida que aumenta el tiempo, comenzando alrededor de 5 eventos y alcanzando más de 7 en los intervalos de mayor duración. Por otro lado, las jugadas no exitosas tienen un promedio de eventos más bajo, comenzando cerca de 4 y mostrando un aumento más gradual e irregular. Además, la frecuencia de jugadas (representada por el tamaño y color de los puntos) disminuye notablemente conforme el tiempo aumenta, indicando que las jugadas más largas son menos comunes en ambos casos. Estos patrones sugieren que las jugadas exitosas tienden a ser más complejas y dinámicas, involucrando un mayor número de eventos en comparación con las no exitosas.
 
 ```{r}
 df  %>% ggplot(aes(x = tiempo, y = n)) + geom_point(alpha = 0.7) + facet_wrap(~exito) + labs(x = "Tiempo de jugada (segs)", y = "Número de jugadas", title = "Tiempo vs Número de Jugadas")
 ```
 
-Hay una relación bastante lineal entre el tiempo de jugada y el número total de eventos. 
+Hay una relación bastante lineal entre el tiempo de jugada y el número total de eventos.
 
 ```{r}
 #| echo: false
@@ -1085,16 +1084,22 @@ df %>%
   theme_bw()
 
 set.seed(1805)
-pdp_dist <- model_profile(explainer_rf, N = nrow(df), variables = "dist.promP")
 
 pdp_horiz <- model_profile(explainer_rf, N = nrow(df), variables = "horiz_tot")
 
-plot(pdp_dist) + geom_rug()
 plot(pdp_horiz) + geom_rug()
 ```
 
+Siguiendo el enfoque de interpretabilidad se analizan las variables de mayor relevancia en RF, resulta de interés la zona de inicio de la jugada. Más precisamente, las coordenadas específicas dónde se inicia la jugada (especialmente *y_inicio*, es decir el ancho de la cancha)
+
 ```{r}
 set.seed(1805)
+pdp_xinicio <- model_profile(explainer_rf, N = nrow(df), variables = "x_inicio")
+pdp_yinicio <- model_profile(explainer_rf, N = nrow(df), variables = "y_inicio")
+x<-plot(pdp_xinicio) + geom_rug()
+y<-plot(pdp_yinicio) + geom_rug()
+x/y
+
 pdp_dist <- model_profile(explainer_rf, N = nrow(df), variables = "dist.promP")
 
 plot(pdp_dist) + geom_rug()

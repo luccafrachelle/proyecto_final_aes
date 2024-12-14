@@ -1004,9 +1004,9 @@ plot(pdp_horiz) + geom_rug()
 
 ```{r}
 set.seed(1805)
-pdp_vert <- model_profile(explainer_rf, N = 9000, variables = "dist.promP")
+pdp_dist <- model_profile(explainer_rf, N = nrow(df), variables = "dist.promP")
 
-plot(pdp_vert) + geom_rug()
+plot(pdp_dist) + geom_rug()
 ```
 
 ```{r}

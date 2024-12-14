@@ -458,7 +458,7 @@ df = df %>%  mutate(diff_x = x_inicio - x_fin, diff_y = y_inicio - y_fin)
 
 ```{r}
 #| echo: false
-df  %>% ggplot(aes( x = exito, y = diff_x)) + geom_violin(fill = "skyblue")  + labs(y = "Diferencia X")
+df  %>% ggplot(aes( x = exito, y = diff_x)) + geom_violin(fill = "skyblue")  + labs(y = "Diferencia X" , title = "Distribución de la diferencia en X entre las jugadas exitosas y no exitosas")
 ```
 
 Se observa una dispersión mayor en la diferencia en el eje X en las jugadas exitosas respecto de las no exitosas. Además, se observa que la mayoria de las jugadas exitosas están concentradas en torno al 0, lo cual tiene sentido ya que son dichas secuencias empiezan y terminan en el mismo lugar.
@@ -468,8 +468,39 @@ Se observa una dispersión mayor en la diferencia en el eje X en las jugadas exi
 df  %>% ggplot(aes( x = exito, y = diff_y)) + geom_violin(fill = "skyblue") + labs(y = "Diferencia Y")
 ```
 
+
 En este caso el comportamiento no es diferente entre las jugadas que son exitosas y las que no.
 
+
+
+```{r}
+df  %>% ggplot(aes( x = diff_x, y = diff_y)) + geom_hex() + labs(y = "Diferencia Y" , title = "Distribución de la diferencia en Y entre las jugadas exitosas y no exitosas") + facet_wrap(~exito)
+```
+
+Se observa que los puntos estan concentrados alrededor de 0,0 lo que implica que la mayoria de las jugas terminan cerca de la posición inicial de la jugada. Lo que llama la atencion es que en las jugadas exitosas, estan mas dispersas en el eje x, teniendo un concentracion mayor en juhagas con diferencias en x mayores a 0. Lo cual indica que estas jugadas se caracerizan por tener un mayor a avance al arco rival.
+
+Aunque en el modelo se quita la variable x_fin para no dar información sobre la posicion final de la jugada, es interesante ver el comportamiento del mismo.
+
+```{r}
+library(ggmosaic)
+df %>%
+  ggplot() +
+  geom_mosaic(aes(weight = 1, x = product(n_eventos), fill = exito)) +
+  labs(
+    title = "Distribución de posiciones iniciales de las jugadas exitosas y no exitosas",
+    x = "Posiciones iniciales",
+    y = "Éxito",
+    fill = "Éxito"
+  ) + theme_minimal() 
+```
+
+Se observa que, a medida que aumenta la cantidad de tipos distintos de jugadas, tienden a tener una mayor proporción de jugadas exitosas en comparación con las no exitosas. La mayoría de las jugadas se concentran en posiciones iniciales con 4 y 5 tipos distintos de jugadas, seguidas de aquellas con entre 1 y 3 tipos. Por otro lado, las posiciones iniciales con más de 5 tipos distintos presentan la menor concentración de jugadas en general.
+
+```{r}
+df  %>% ggplot(aes(x = vert_tot , y = `dist.promP`)) + geom_hex() + facet_wrap(~exito) + labs(x = "Verticalidad promedio",y = "Distancia promedio de los pases" , title = 'Verticalidad Total vs Distancia Promedio de los pases')
+```
+
+En las jugadas exitosas, se observa una mayor concentración de pases con distancias promedio moderadas (20-40) y una verticalidad más dispersa, lo que sugiere que las jugadas exitosas tienden a tener una distancio promedio ne pases menor que en las no exitosas. Aunque tanto las jugadas exitosas como las no exitosas se concentran en verticalidades positivas , esto parece natural con el deporte.
 ```{r}
 #| echo: false
 df %>%
@@ -479,6 +510,65 @@ df %>%
 ```
 
 Aunque la mayoría de las jugadas tanto exitosas como no exitosas se concentran cercanas a tiempo 0 , la concentración en 0 es mucho mayor en las jugadas que no exitosas.
+
+```{r}
+df %>%
+  group_by(n, exito) %>% 
+  summarise(
+    mean_ratio = mean(n_eq / n),
+    count = n(),
+    .groups = "drop"
+  ) %>%
+  ggplot(aes(x = n, y = mean_ratio, color = count)) +
+  geom_point(alpha = 0.7) +
+  facet_wrap(~exito) +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, NA)) +
+  scale_color_gradient(low = "blue", high = "red") +
+  labs(
+    x = "Número de jugadas",
+    y = "Proporción de jugadas",
+    size = "Frecuencia",
+    color = "Frecuencia",
+    title = "Relación entre jugadas y proporción jugadas equipos por éxito"
+  ) 
+```
+
+Se observa que la mayoría de las jugadas están concentradas en una cantidad relativamente pequeña de jugadas, independientemente de si son exitosas o no. En el rango donde se concentran la mayor cantidad de jugadas (entre 0 y 50), las jugadas exitosas muestran una menor proporción de participación del equipo que tiene la pelota, en comparación con las jugadas no exitosas. Además, se nota que, a medida que aumenta el número de jugadas, la proporción de participación del equipo que tiene la pelota tiende a estabilizarse cerca de 1, particularmente en las jugadas exitosas. Por otro lado, la densidad más alta se encuentra en jugadas con pocas repeticiones, como lo refleja el gradiente de color, indicando que las observaciones más frecuentes corresponden a situaciones menos complejas. Esto sugiere que el éxito de las jugadas podría estar influenciado por un número limitado de interacciones o decisiones rápidas en contextos menos densos de jugadas.
+
+Este punto es muy interesane ya que por un lado mayor variedad de eventos mayor es la proporcion de éxito, sin embargo las jugadas se conentran en poco eventos. Lo que de alguna forma da la pauta que las jugadas exitosas son aquellas que hace de todo un poco en pa cantidad de eventos. Lo que naturalmente hace interesante ver la duración de las jugadas.
+```{r}
+df %>%
+  mutate(tiempo_bin = cut(tiempo, breaks = seq(min(tiempo), max(tiempo), by = 10), include.lowest = TRUE),
+         tiempo_bin_mid = as.numeric(sub("\\((.+),.*", "\\1", tiempo_bin)) + 
+                          (as.numeric(sub(".*,(.+)\\]", "\\1", tiempo_bin)) - as.numeric(sub("\\((.+),.*", "\\1", tiempo_bin))) / 2) %>%
+  group_by(tiempo_bin_mid, exito) %>%
+  summarise(
+    mean_ratio = mean(n_eventos),
+    count = n(),
+    .groups = "drop"
+  ) %>%
+  ggplot(aes(x = tiempo_bin_mid, y = mean_ratio, color = count)) +
+  geom_point(alpha = 0.7) +
+  facet_wrap(~exito) +
+  scale_x_continuous(expand = c(0, 0)) +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, NA)) +
+  scale_color_gradient(low = "blue", high = "red") +
+  labs(
+    x = "Tiempo (continuo)",
+    y = "Promedio de eventos",
+    size = "Frecuencia",
+    color = "Frecuencia",
+    title = "Relación entre tiempo y promedio de eventos por éxito"
+  ) 
+```
+
+ En las jugadas exitosas, se observa un incremento constante en el promedio de eventos a medida que aumenta el tiempo, comenzando alrededor de 5 eventos y alcanzando más de 7 en los intervalos de mayor duración. Por otro lado, las jugadas no exitosas tienen un promedio de eventos más bajo, comenzando cerca de 4 y mostrando un aumento más gradual e irregular. Además, la frecuencia de jugadas (representada por el tamaño y color de los puntos) disminuye notablemente conforme el tiempo aumenta, indicando que las jugadas más largas son menos comunes en ambos casos. Estos patrones sugieren que las jugadas exitosas tienden a ser más complejas y dinámicas, involucrando un mayor número de eventos en comparación con las no exitosas.
+
+```{r}
+df  %>% ggplot(aes(x = tiempo, y = n)) + geom_point(alpha = 0.7) + facet_wrap(~exito) + labs(x = "Tiempo de jugada (segs)", y = "Número de jugadas", title = "Tiempo vs Número de Jugadas")
+```
+
+Hay una relación bastante lineal entre el tiempo de jugada y el número total de eventos. 
 
 ```{r}
 #| echo: false
@@ -590,7 +680,7 @@ ranking<-rbind(read_excel("data/ranking fifa.xlsx",sheet = 'Fem') %>% mutate(mun
 
 # Modelos
 
-Se proponenen 3 modelos distintos para el problema de clasificación de la variable exito. Uno logistico, un random forest y un LightGBM. La idea es usar la regresión logística para entender como influyen los distintos factores en la variable exito sin perder la interpretabilidad de los resultados. Los otros dos se prponen más con la idea de predecir la variable exito usando la información que se tiene en el conjunto de datos. Se eligen estos modelos uno produce menos overfitting(random forest) y otro produce menos error en la validación(LightGBM).
+Se proponenen 4 modelos distintos para el problema de clasificación de la variable exito. Una lasso, un árbol, un random forest y un LightGBM. La idea es usar la lasso para entender como influyen los distintos factores en la variable exito sin perder la interpretabilidad de los resultados. Los otros dos se proponen más con la idea de predecir la variable exito usando la información que se tiene en el conjunto de datos. Se eligen estos modelos uno produce menos overfitting(random forest) y otro produce menos error en la validación(LightGBM).
 
 ## Lasso
 
@@ -995,10 +1085,11 @@ df %>%
   theme_bw()
 
 set.seed(1805)
-pdp_vert <- model_profile(explainer_rf, N = nrow(df), variables = "vert_tot")
+pdp_dist <- model_profile(explainer_rf, N = nrow(df), variables = "dist.promP")
+
 pdp_horiz <- model_profile(explainer_rf, N = nrow(df), variables = "horiz_tot")
 
-plot(pdp_vert) + geom_rug()
+plot(pdp_dist) + geom_rug()
 plot(pdp_horiz) + geom_rug()
 ```
 

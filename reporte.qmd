@@ -348,9 +348,7 @@ df <- read_excel("./data/trayectorias.xlsx") %>%
   select(-c(termina, gol, tiro, termina_tiro, participa_golero)) %>%
   mutate(exito = factor(exito, levels = c(1, 0), labels = c("1", "0")))
 
-df_split <- initial_split(df)
-train <- training(df_split)
-test <- testing(df_split)
+df = df  %>% mutate(x_fin = 120 - x_fin, x_inicio = 120 - x_inicio)
 
 all_cores <- parallel::detectCores(logical = FALSE)
 registerDoParallel(cores = all_cores)
@@ -461,8 +459,7 @@ df = df %>%  mutate(diff_x = x_inicio - x_fin, diff_y = y_inicio - y_fin)
 df  %>% ggplot(aes( x = exito, y = diff_x)) + geom_violin(fill = "skyblue")  + labs(y = "Diferencia X" , title = "Distribución de la diferencia en X entre las jugadas exitosas y no exitosas")
 ```
 
-Se observa una dispersión mayor en la diferencia en el eje X en las jugadas exitosas respecto de las no exitosas. Además, se observa que la mayoria de las jugadas exitosas están concentradas en torno al 0, lo cual tiene sentido ya que son dichas secuencias empiezan y terminan en el mismo lugar.
-
+Se observa una dispersión mayor en la diferencia en el eje X en las jugadas exitosas respecto de las no exitosas. Además, se observa que la mayoria de las jugadas no exitosas están concentradas en torno al 0, lo cual tiene sentido ya que son dichas secuencias empiezan y terminan en el mismo lugar. La diferencia en X es mayor en las jugadas exitosas que en las no exitosas , lo cual tiene que sentido ya que implica un avance hacia el arco rival.
 ```{r}
 #| echo: false
 df  %>% ggplot(aes( x = exito, y = diff_y)) + geom_violin(fill = "skyblue") + labs(y = "Diferencia Y")
@@ -471,10 +468,10 @@ df  %>% ggplot(aes( x = exito, y = diff_y)) + geom_violin(fill = "skyblue") + la
 En este caso el comportamiento no es diferente entre las jugadas que son exitosas y las que no.
 
 ```{r}
-df  %>% ggplot(aes( x = diff_x, y = diff_y)) + geom_hex() + labs(y = "Diferencia Y" , title = "Distribución de la diferencia en Y entre las jugadas exitosas y no exitosas") + facet_wrap(~exito)
+df  %>% ggplot(aes( x = diff_x, y = diff_y)) + geom_hex() + labs(y = "Diferencia Y" ,  x = "Diferencia X" , title = "Distribución de la diferencia en Y entre las jugadas exitosas y no exitosas") + facet_wrap(~exito)
 ```
 
-Se observa que los puntos estan concentrados alrededor de 0,0 lo que implica que la mayoria de las jugas terminan cerca de la posición inicial de la jugada. Lo que llama la atencion es que en las jugadas exitosas, estan mas dispersas en el eje x, teniendo un concentracion mayor en juhagas con diferencias en x mayores a 0. Lo cual indica que estas jugadas se caracerizan por tener un mayor a avance al arco rival.
+Se observa que los puntos estan concentrados alrededor de 0,0 lo que implica que la mayoria de las jugas terminan cerca de la posición inicial de la jugada. Lo que llama la atencion es que en las jugadas exitosas, estan mas dispersas en el eje x, teniendo un concentracion mayor en juhagas con diferencias en x mayores positivas. Lo cual indica que estas jugadas se caracerizan por tener un mayor a avance al arco rival.
 
 Aunque en el modelo se quita la variable x_fin para no dar información sobre la posicion final de la jugada, es interesante ver el comportamiento del mismo.
 
@@ -670,6 +667,7 @@ df <- read_csv("./models/data.csv")  %>%
 train <- df %>% filter(dataset == "train")
 test <- df %>% filter(dataset == "test")
 
+
 ranking<-rbind(read_excel("data/ranking fifa.xlsx",sheet = 'Fem') %>% mutate(mundial='F'),read_excel("data/ranking fifa.xlsx",sheet = 'Masc') %>% mutate(mundial='M'))
 ```
 
@@ -765,10 +763,15 @@ predict(lasso, test, type = "class") %>%
 ## Arbol de Decisión
 
 ```{r}
+temp = train %>% mutate(x_fin = 125 - x_fin, x_inicio = 125 - x_inicio)
+
 original_tree <- rpart(
   formula = exito ~ ., 
-  data = train %>% select(-c(dataset, exito_num)), 
+  data = temp %>% select(-c(termina, gol, tiro, termina_tiro, participa_golero,
+          xG, zona_fin, x_fin, presion, match_id,
+          possession_team.name, possession_team.id , dataset , exito_num)),
   control = rpart.control(cp = 0) 
+
 )
 
 pruned_tree <- prune(original_tree, cp = original_tree$cptable[which(original_tree$frame$var == "<leaf>")[2] -1 , "CP"])
@@ -786,17 +789,50 @@ Como primer idea se ajusta un arbol relativamente chico con la idea de ver como 
 
 Este arbol chico no deja algunas cosas intersantes para resaltar:
 
--   El árbol de decisión inicia evaluando la variable `n_eventos`, que es el factor principal para predecir el resultado. Si `n_eventos` es mayor o igual a 6, se toma la rama izquierda; de lo contrario, la derecha.
+### Análisis del Árbol
+- **Nodo raíz**:  
+  El árbol comienza evaluando `n_eventos`, la cantidad de eventos en la jugada. Este es el factor más determinante:
+  - Si **`n_eventos >= 6`**, aumenta la probabilidad de éxito (rama izquierda).
+  - Si **`n_eventos < 6`**, se procede a la rama derecha.
 
--   En la rama izquierda (`n_eventos >= 6`), el siguiente factor es `nzonas`. Cuando `nzonas` es mayor o igual a 3, aumenta la probabilidad de éxito (`1`). Si es menor, la probabilidad de éxito disminuye.
+- **Rama izquierda (`n_eventos >= 6`)**:  
+  La variable siguiente es `nzonas`, que evalúa cuántas zonas diferentes intervienen en la jugada:
+  - Si **`nzonas >= 3`**, la probabilidad de éxito es mayor.  
+  - Si es menor, la probabilidad de éxito disminuye, indicando jugadas más predecibles.
 
--   En la rama derecha (`n_eventos < 6`), el modelo considera `vert_tot`. Si `vert_tot >= 50`, se evalúa `dist.promP`, donde valores menores a 2.8 aumentan la probabilidad de éxito.
+- **Rama derecha (`n_eventos < 6`)**:  
+  En esta parte del árbol, interviene **`vert_tot`** (la variación total vertical del pase en el campo).  
+  - Si **`vert_tot >= 50`**, se evalúa `dist.promP` (la distancia promedio que recorre el pase):  
+    - Valores de **`dist.promP < 2.8`** aumentan la probabilidad de éxito. Esto sugiere que pases cortos con mayor altura tienen más éxito.  
+  - Si **`vert_tot < 50`**, se vuelve a analizar `n_eventos`:
+    - Cuando **`n_eventos >= 4`**, el éxito depende de **`vert_tot < -42`**, indicando pases largos y muy verticales como un factor clave.
 
--   Si `vert_tot < 50`, se analiza nuevamente `n_eventos`. Si es mayor o igual a 4, la probabilidad de éxito depende de `vert_tot < -42`; de lo contrario, la probabilidad de fracaso (`0`) aumenta.
+### Interpretación de Variables Clave
+1. **`n_eventos`**:  
+   Es la variable más importante. Jugadas con más eventos tienden a ser más exitosas.
 
--   Las variables clave en el modelo son `n_eventos`, `vert_tot`, `nzonas`, y `dist.promP`, con interacciones específicas que combinan estos factores para predecir el resultado.
+2. **`nzonas`**:  
+   Participar en 3 o más zonas del campo aumenta la probabilidad de éxito.
 
-Luego de esto se tunea el modelo para obtener mejores hiperparámetros y se ajusta de nuevo. Como resultado, se obtiene un árbol de decisión más profundo que permite predecir mejor el resultado de las jugadas.
+3. **`vert_tot`**:  
+   La variación vertical del pase es crucial, especialmente en la rama derecha.
+
+4. **`dist.promP`**:  
+   Pases cortos (menores a 2.8 unidades) con altura (`vert_tot >= 50`) son más exitosos.
+
+5. **`x_inicio`**:  
+   El valor **`x_inicio >= 85`** indica jugadas que se inician cerca del arco rival (recordando que el arco del rival está en `x = 125`).
+
+---
+
+### Conclusión
+Este árbol, aunque pequeño, muestra patrones interesantes:
+- Las jugadas **con mayor participación** (más eventos y zonas) y **pases cortos con altura** tienen más éxito.
+- La posición inicial en el campo influye, con jugadas iniciadas cerca del arco rival siendo más exitosas.
+- Finalmente, el comportamiento de la variable `vert_tot` y su combinación con otras (como `n_eventos` y `dist.promP`) resulta fundamental.
+
+Luego de este análisis inicial, se procede a afinar los hiperparámetros y ajustar un modelo más profundo que capture relaciones más complejas y permita predecir con mayor precisión el resultado de las jugadas.
+
 
 ```{r}
 autoplot(decision_tree_tune_results)
@@ -871,6 +907,7 @@ autoplot(random_forest_tune_results) +
 
 De igual manera, se eligen los hiperparámetros que mejoren la curva de ROC AUC. La elección de los hiperparámetros es la siguiente:
 
+
 ```{r}
 random_forest_tune_results %>% select_best(metric = "roc_auc")  %>% select(-3)  %>% kable()
 ```
@@ -896,7 +933,9 @@ autoplot(rf_conf_matrix_test, type = "heatmap") +
   theme_minimal() + scale_fill_gradient(low = "white", high = "steelblue")
 ```
 
-El modelo mejora la performance respecto al lasso y al árbol de decisión. \### Importancia de las variables
+El modelo mejora la performance respecto al lasso y al árbol de decisión. 
+
+### Importancia de las variables
 
 ```{r}
 random_forest %>%
@@ -1035,10 +1074,10 @@ calculate_model_metrics <- function(fit, split_data) {
   return(metrics_df)
 }
 
-lasso_metrics <- calculate_model_metrics(lasso, train)
-tree_metrics <- calculate_model_metrics(decision_tree, train)
-rf_metrics <- calculate_model_metrics(random_forest, train)
-lgbm_metrics <- calculate_model_metrics(lightgbm, train)
+lasso_metrics <- calculate_model_metrics(lasso, test)
+tree_metrics <- calculate_model_metrics(decision_tree, test)
+rf_metrics <- calculate_model_metrics(random_forest, test)
+lgbm_metrics <- calculate_model_metrics(lightgbm, test)
 
 model_performance <- bind_rows(
   Lasso = lasso_metrics,
@@ -1067,10 +1106,13 @@ model_performance %>%
   )
 ```
 
+Aunque el mejor modelo en términos de error es el LightGBM, la diferencia de performance respecto al random forest es muy pequeña. Por lo que para poder hacer un análisis interpretable del modelo, se optó por usar el random forest.
+
+
 ## Distriubución de posiciones iniciales
 
 ```{r}
-df %>%
+df %>% mutate(x_fin = 125 - x_fin, x_inicio = 125 - x_inicio) %>%
   ggplot(aes(x = x_inicio, y = y_inicio)) +
   geom_bin2d(bins = 15) +
   scale_fill_gradient(low = "blue", high = "red") + 
@@ -1091,40 +1133,13 @@ theme(legend.position = "bottom") + facet_wrap(~exito) + coord_flip() +
   labs(title = "Posiciones de inicio segun exito", x = "Coordenada X", y = "Coordenada Y")
 ```
 
-## Ver donde se equivoca el Random Forest
 
-```{r}
-temp = predict(random_forest, new_data = train, type = "class") %>%
-  bind_cols(predict(random_forest, new_data = train, type = "prob")) %>%
-  bind_cols(train)
-
-temp %>% filter(exito != .pred_class) %>%
-  ggplot(aes(x = x_inicio, y = y_inicio)) +
-  geom_bin2d(bins = 15) +
-  scale_fill_gradient(low = "blue", high = "red") + 
-geom_segment(aes(x=0,xend=120,y=0,yend=0))+
-geom_segment(aes(x=0,xend=120,y=80,yend=80))+
-geom_segment(aes(x=0,xend=0,y=0,yend=80))+
-geom_segment(aes(x=120,xend=120,y=0,yend=80))+
-geom_segment(aes(x=60,xend=60,y=0,yend=80))+
-geom_segment(aes(x=0,xend=120,y=62,yend=62))+
-geom_segment(aes(x=0,xend=120,y=18,yend=18))+
-geom_segment(aes(x=0,xend=120,y=30,yend=30))+
-geom_segment(aes(x=0,xend=120,y=50,yend=50))+
-geom_segment(aes(x=18,xend=18,y=0,yend=80))+
-geom_segment(aes(x=39,xend=39,y=0,yend=80))+
-geom_segment(aes(x=102,xend=102,y=0,yend=80))+
-geom_segment(aes(x=81,xend=81,y=0,yend=80)) +
-theme(legend.position = "bottom") +
-  labs(title = "Errores en los datos de entrenamiento") + coord_flip() 
-```
-
-## Errores en el testeo
+## Errores del modelo en el testeo
 
 ```{r}
 temp = predict(random_forest, new_data = test, type = "class") %>%
   bind_cols(predict(random_forest, new_data = test, type = "prob")) %>%
-  bind_cols(test)
+  bind_cols(test)  %>% mutate(x_inicio = 125 - x_inicio)
 
 temp %>% filter(exito != .pred_class) %>%
   ggplot(aes(x = x_inicio, y = y_inicio)) +
@@ -1144,7 +1159,54 @@ geom_segment(aes(x=39,xend=39,y=0,yend=80))+
 geom_segment(aes(x=102,xend=102,y=0,yend=80))+
 geom_segment(aes(x=81,xend=81,y=0,yend=80)) +
 theme(legend.position = "bottom") + facet_wrap(~exito) + coord_flip() +
-  labs(title = "Errores en el testeo", x = "Coordenada X", y = "Coordenada Y")
+  labs(title = "Errores en el testeo (Posiciones incicales) segun exito", x = "Coordenada X", y = "Coordenada Y")
+```
+
+## Distriubución de posiciones finales
+
+```{r}
+df  %>% mutate(x_fin = 125 - x_fin, x_inicio = 125 - x_inicio) %>%
+  ggplot(aes(x = x_fin, y = y_fin)) +
+  geom_bin2d(bins = 15) +
+  scale_fill_gradient(low = "blue", high = "red") + 
+geom_segment(aes(x=0,xend=120,y=0,yend=0))+
+geom_segment(aes(x=0,xend=120,y=80,yend=80))+
+geom_segment(aes(x=0,xend=0,y=0,yend=80))+
+geom_segment(aes(x=120,xend=120,y=0,yend=80))+
+geom_segment(aes(x=60,xend=60,y=0,yend=80))+
+geom_segment(aes(x=0,xend=120,y=62,yend=62))+
+geom_segment(aes(x=0,xend=120,y=18,yend=18))+
+geom_segment(aes(x=0,xend=120,y=30,yend=30))+
+geom_segment(aes(x=0,xend=120,y=50,yend=50))+
+geom_segment(aes(x=18,xend=18,y=0,yend=80))+
+geom_segment(aes(x=39,xend=39,y=0,yend=80))+
+geom_segment(aes(x=102,xend=102,y=0,yend=80))+
+geom_segment(aes(x=81,xend=81,y=0,yend=80)) +
+theme(legend.position = "bottom") + facet_wrap(~exito)  + coord_flip() +
+  labs(title = "Posiciones finales segun éxito", x = "Coordenada X", y = "Coordenada Y")
+```
+
+### Errores del modelo en el testeo
+```{r}
+temp %>% filter(exito != .pred_class) %>%
+  ggplot(aes(x = x_fin, y = y_fin)) +
+  geom_bin2d(bins = 15) +
+  scale_fill_gradient(low = "blue", high = "red") + 
+geom_segment(aes(x=0,xend=120,y=0,yend=0))+
+geom_segment(aes(x=0,xend=120,y=80,yend=80))+
+geom_segment(aes(x=0,xend=0,y=0,yend=80))+
+geom_segment(aes(x=120,xend=120,y=0,yend=80))+
+geom_segment(aes(x=60,xend=60,y=0,yend=80))+
+geom_segment(aes(x=0,xend=120,y=62,yend=62))+
+geom_segment(aes(x=0,xend=120,y=18,yend=18))+
+geom_segment(aes(x=0,xend=120,y=30,yend=30))+
+geom_segment(aes(x=0,xend=120,y=50,yend=50))+
+geom_segment(aes(x=18,xend=18,y=0,yend=80))+
+geom_segment(aes(x=39,xend=39,y=0,yend=80))+
+geom_segment(aes(x=102,xend=102,y=0,yend=80))+
+geom_segment(aes(x=81,xend=81,y=0,yend=80)) +
+theme(legend.position = "bottom") + facet_wrap(~exito) + coord_flip() +
+  labs(title = "Errores en el testeo (Posiciones finales) segun exito", x = "Coordenada X", y = "Coordenada Y")
 ```
 
 ## Interpretabilidad del RandomForest
@@ -1200,6 +1262,8 @@ Por un lado, para la coordenada de la X vemos que la zona del área rival (x\>10
 
 Por otra parte, para la Y tenemos que, en promedio, la probabilidad de éxito no varía demasiado para cada uno de los valores posibles que puede tomar dicha coordenada. Así todo, la mayor probabilidad (alrededor del 0.527) se da en el extremo derecho del terreno de juego. Esto puede interpretarse como que la mayoría de jugadas de éxito del modelo suelen arrancar en dicho sector del campo, lo que puede obedecer a estilos y patrones de juego específicos de los equipos analizados.
 
+
+
 ```{r}
 set.seed(1805)
 pdp_xinicio <- model_profile(explainer_rf, N = nrow(df), variables = "x_inicio")
@@ -1217,35 +1281,69 @@ Luego, si tomamos en cuenta la distancia promedio de los pases de la jugada tene
 
 ```{r}
 temp = predict(random_forest, new_data = test, type = "class") %>%
-  bind_cols(predict(random_forest, new_data = test, type = "prob")) %>%
-  bind_cols
+  bind_cols(test) %>% mutate(exito = as.numeric(exito) - 1) %>% group_by(team.name , mundial) %>% summarise(cant = n() , error=mean(exito!=.pred_class)) %>% arrange(desc(error)) %>% 
+  left_join(ranking,by=c("team.name","mundial"))  %>% 
+  mutate(error = 1 - round(error,4)) 
 
-temp = temp  %>% mutate(exito = as.numeric(exito) - 1)
 ```
 
 ### % error por equipo
 
 ```{r}
-temp = temp  %>% group_by(team.name , mundial) %>% summarise(cant = n() , error=mean(exito!=.pred_class)) %>% arrange(desc(error)) %>% 
-  left_join(ranking,by=c("team.name","mundial"))  %>% 
-  mutate(error = 1 - round(error,4)) 
+m = temp  %>% filter(mundial=='M') %>%
+   ggplot(aes(x = fct_reorder(team.name, error), y = error)) + geom_bar(stat = "identity" , fill = "skyblue" , color = "black") + labs(y = "% error por equipo", x = "Equipo" , title = "Error por equipo por mundial") + theme_bw() +
+  coord_flip() + 
+  geom_text(aes(label=round(error,2)),hjust= -0.05,vjust= 0.5,size=2.5) + 
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 0.27)) +
+  labs(
+    x = "Equipo",
+    y = "% error",
+    title = "Masculino"
+  )
+f = temp  %>% filter(mundial=='F') %>%
+   ggplot(aes(x = fct_reorder(team.name, error), y = error)) + geom_bar(stat = "identity" , fill = "skyblue" , color = "black") + labs(y = "% error por equipo", x = "Equipo" , title = "Error por equipo por mundial") + theme_bw() +
+  coord_flip() + 
+  geom_text(aes(label=round(error,2)),hjust= -0.05,vjust= 0.5,size=2.5) + 
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 0.30)) +
+  labs(
+    x = "Equipo",
+    y = "% error",
+    title = "Femenino"
+  )
+m + f
 ```
 
-```{r}
-temp  %>% ggplot(aes(x = team.name, y = error)) + geom_bar(stat = "identity") + labs(y = "% error por equipo", x = "Equipo")  + theme_bw() + 
-  coord_flip() + facet_wrap(~mundial)
-```
+Los resultados sin similares para los dos mundiales. No hay nigun equipo que tenga un error muy alto , que rompa los ojos
 
 ```{r}
-temp  %>% ggplot(aes(x = Ranking, y = error)) + geom_point() + labs(y = "Erorr", x = "Ranking")  + theme_bw() + 
-   facet_wrap(~mundial) + labs(title = "Error por equipo por mundial")
+temp  %>% ggplot(aes(x = mundial , y = error)) + geom_boxplot(fill = "skyblue") + labs(y = "% error por equipo", x = "Mundial" , title = "Error por equipo por mundial") + theme_bw() 
 ```
+
+Aunque hay una menor varianza en los errores del mundial masculino, si lo vemos en la escala de errores no parece una diferencia muy grande. Las medianas son similares , no parece que se equivoque más en un mudnial que en otro.
+La diferencia en varianza puede deberse a un estilo de juego más variado en el mundial femenino , que el modelo no puede capturar del todo(de todas formas el error es pequeño).
+
+```{r}
+temp  %>% ggplot(aes(x = Ranking, y = error)) + geom_point() + labs(y = "Erorr", x = "Ranking")  +
+   theme_bw()  +
+   facet_wrap(~mundial) + 
+   geom_smooth(method = "lm") +
+   labs(title = "Error por equipo por mundial")
+```
+
+Llama la atencion como los equipo con un ranking mayor(peorres) tienene un error mayor. Pareceria que a un mejor nivel de juego el modelo puede ser más preciso.  De todas formas esta relación no parece ser muy fuerte.
 
 ```{r}
 temp  %>% ggplot(aes(x = cant, y = error)) + geom_point() + 
-  labs(y = "Erorr", x = "Cantidad de jugadas" , title = "Error por equipo por mundial") + theme_bw() + 
-  facet_wrap(~mundial)
+  labs(y = "Erorr", x = "Cantidad de jugadas" , title = "Error por equipo por mundial") +
+   theme_bw() +
+  facet_wrap(~mundial) + 
+  geom_smooth(method = "lm")
 ```
+
+Se da algo interesante que y es que hay diferencias entre los mundiales.
+Por un lado no parece haber una diferencia en el error a mayor cantidad de jugadas en el mundial masculino. 
+Pero en el mundial femenino parece haber una relación negativa entre las jugadas y el error.
+
 
 ### Modelos por mundial
 

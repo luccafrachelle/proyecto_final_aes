@@ -461,7 +461,7 @@ df = df %>%  mutate(diff_x = x_inicio - x_fin, diff_y = y_inicio - y_fin)
 df  %>% ggplot(aes( x = exito, y = diff_x)) + geom_violin(fill = "skyblue")  + labs(y = "Diferencia X" , title = "Distribución de la diferencia en X entre las jugadas exitosas y no exitosas")
 ```
 
-Se observa una dispersión mayor en la diferencia en el eje X en las jugadas exitosas respecto de las no exitosas. Además, se observa que la mayoria de las jugadas no exitosas están concentradas en torno al 0, lo cual tiene sentido ya que son dichas secuencias empiezan y terminan en el mismo lugar. La diferencia en X es mayor en las jugadas exitosas que en las no exitosas , lo cual tiene que sentido ya que implica un avance hacia el arco rival.
+Se observa una dispersión mayor en la diferencia en el eje X en las jugadas exitosas respecto de las no exitosas. Además, se observa que la mayoría de las jugadas no exitosas están concentradas en torno al 0, lo cual tiene sentido ya que son dichas secuencias empiezan y terminan en el mismo lugar. La diferencia en X es mayor en las jugadas exitosas que en las no exitosas , lo cual tiene que sentido ya que implica un avance hacia el arco rival.
 
 ```{r}
 #| echo: false
@@ -510,9 +510,9 @@ Tanto en la cantidad de traslados como en la cantidad de jugadores que participa
 df  %>% ggplot(aes( x = diff_x, y = diff_y)) + geom_hex() + labs(y = "Diferencia Y" ,  x = "Diferencia X" , title = "Distribución de la diferencia en Y entre las jugadas exitosas y no exitosas") + facet_wrap(~exito)
 ```
 
-Se observa que los puntos estan concentrados alrededor de 0,0 lo que implica que la mayoria de las jugas terminan cerca de la posición inicial de la jugada. Lo que llama la atencion es que en las jugadas exitosas, estan mas dispersas en el eje x, teniendo un concentracion mayor en juhagas con diferencias en x mayores positivas. Lo cual indica que estas jugadas se caracerizan por tener un mayor a avance al arco rival.
+Se observa que los puntos están concentrados alrededor de 0,0 lo que implica que la mayoría de las jugadas terminan cerca de la posición inicial de la jugada. Lo que llama la atención es que en las jugadas exitosas, están mas dispersas en el eje x, teniendo un concentración mayor en jugadas con diferencias en x mayores positivas. Lo cual indica que estas jugadas se caracterizan por tener un mayor a avance al arco rival.
 
-Aunque en el modelo se quita la variable x_fin para no dar información sobre la posicion final de la jugada, es interesante ver el comportamiento del mismo.
+Aunque en el modelo se quita la variable x_fin para no dar información sobre la posición final de la jugada, es interesante ver el comportamiento del mismo.
 
 ```{r}
 library(ggmosaic)
@@ -559,7 +559,7 @@ df %>%
 
 Se observa que la mayoría de las jugadas están concentradas en una cantidad relativamente pequeña de jugadas, independientemente de si son exitosas o no. En el rango donde se concentran la mayor cantidad de jugadas (entre 0 y 50), las jugadas exitosas muestran una menor proporción de participación del equipo que tiene la pelota, en comparación con las jugadas no exitosas. Además, se nota que, a medida que aumenta el número de jugadas, la proporción de participación del equipo que tiene la pelota tiende a estabilizarse cerca de 1, particularmente en las jugadas exitosas. Por otro lado, la densidad más alta se encuentra en jugadas con pocas repeticiones, como lo refleja el gradiente de color, indicando que las observaciones más frecuentes corresponden a situaciones menos complejas. Esto sugiere que el éxito de las jugadas podría estar influenciado por un número limitado de interacciones o decisiones rápidas en contextos menos densos de jugadas.
 
-Este punto es muy interesane ya que por un lado mayor variedad de eventos mayor es la proporcion de éxito, sin embargo las jugadas se conentran en poco eventos. Lo que de alguna forma da la pauta que las jugadas exitosas son aquellas que hace de todo un poco en pa cantidad de eventos. Lo que naturalmente hace interesante ver la duración de las jugadas.
+Este punto es muy interesante ya que por un lado mayor variedad de eventos mayor es la proporción de éxito, sin embargo las jugadas se concentran en poco eventos. Lo que de alguna forma da la pauta que las jugadas exitosas son aquellas que hace de todo un poco en cantidad de eventos. Lo que naturalmente hace interesante ver la duración de las jugadas.
 
 ```{r}
 df %>%
@@ -679,7 +679,7 @@ ranking<-rbind(read_excel("data/ranking fifa.xlsx",sheet = 'Fem') %>% mutate(mun
 
 # Modelos
 
-Se proponenen 4 modelos distintos para el problema de clasificación de la variable exito. Una lasso, un árbol, un random forest y un LightGBM. La idea es usar la lasso para entender como influyen los distintos factores en la variable exito sin perder la interpretabilidad de los resultados. Los otros dos se proponen más con la idea de predecir la variable exito usando la información que se tiene en el conjunto de datos. Se eligen estos modelos uno produce menos overfitting(random forest) y otro produce menos error en la validación(LightGBM).
+Se proponen 4 modelos distintos para el problema de clasificación de la variable éxito. Una lasso, un árbol, un random forest y un LightGBM. La idea es usar la lasso para entender como influyen los distintos factores en la variable éxito sin perder la interpretabilidad de los resultados. Los otros dos se proponen más con la idea de predecir la variable exito usando la información que se tiene en el conjunto de datos. Se eligen estos modelos uno produce menos overfitting(random forest) y otro produce menos error en la validación(LightGBM).
 
 ## Lasso
 
@@ -715,7 +715,7 @@ df  %>% ggplot(aes(x = n, y = n_eq)) + geom_point() +
   labs(title = "Cantidad de jugadas vs cantidad de jugadas del equipo" , y = "Cantidad de eventos del equipo", x = "Cantidad de eventos")
 ```
 
-De alguna forma se estan compensando los efectos , como se vio en la visualizacion de la proporción de eventos por equipo vs cantidad de eventos totales.
+De alguna forma se están compensando los efectos , como se vio en la visualización de la proporción de eventos por equipo vs cantidad de eventos totales.
 
 ```{r}
 lasso %>% autoplot()
@@ -766,7 +766,7 @@ predict(lasso, test, type = "class") %>%
   select(Metric = metric, Value = .estimate)  %>% kable()
 ```
 
-## Arbol de Decisión
+## Árbol de Decisión
 
 ```{r}
 temp = train %>% mutate(x_fin = 125 - x_fin, x_inicio = 125 - x_inicio)
@@ -791,9 +791,9 @@ rpart.plot(
 )
 ```
 
-Como primer idea se ajusta un arbol relativamente chico con la idea de ver como estan interactuando las variables. Como se puede observan con una profundidad bastante chica logra sperar las jugadas exitosas de loas que no.
+Como primer idea se ajusta un árbol relativamente chico con la idea de ver como están interactuando las variables. Como se puede observan con una profundidad bastante chica logra seprar las jugadas exitosas de loas que no.
 
-Este arbol chico no deja algunas cosas intersantes para resaltar:
+Este árbol chico no deja algunas cosas interesantes para resaltar:
 
 ### Análisis del Árbol
 
@@ -847,7 +847,7 @@ Los hiperparámetros que se eligen para el árbol de decisión final son los sig
 decision_tree_tune_results %>% select_best(metric = "roc_auc")  %>% select(-4)  %>% kable()
 ```
 
-La elección de los hiperparámetros se eligieron tommando en cuenta la curva de ROC AUC.
+La elección de los hiperparámetros se eligieron tomando en cuenta la curva de ROC AUC.
 
 ### Árbol de Decisión Final
 
@@ -855,7 +855,7 @@ La elección de los hiperparámetros se eligieron tommando en cuenta la curva de
 decision_tree %>% extract_fit_engine() %>% rpart.plot(main = "Árbol de Decisión Final")
 ```
 
-### Matriz de Confusion
+### Matriz de Confusión
 
 ```{r}
 tree_predictions <- predict(decision_tree, new_data = test, type = "class") %>%
@@ -914,7 +914,7 @@ De igual manera, se eligen los hiperparámetros que mejoren la curva de ROC AUC.
 random_forest_tune_results %>% select_best(metric = "roc_auc")  %>% select(-3)  %>% kable()
 ```
 
-### Matriz de Confusion
+### Matriz de Confusión
 
 ```{r}
 rf_predictions_test <- predict(random_forest, test) %>%
@@ -1110,7 +1110,7 @@ model_performance %>%
 
 Aunque el mejor modelo en términos de error es el LightGBM, la diferencia de performance respecto al random forest es muy pequeña. Por lo que para poder hacer un análisis interpretable del modelo, se optó por usar el random forest.
 
-## Distriubución de posiciones iniciales
+## Distribución de posiciones iniciales
 
 ```{r}
 df %>% mutate(x_fin = 125 - x_fin, x_inicio = 125 - x_inicio) %>%
@@ -1134,7 +1134,7 @@ theme(legend.position = "bottom") + facet_wrap(~exito) + coord_flip() +
   labs(title = "Posiciones de inicio segun exito", x = "Coordenada X", y = "Coordenada Y")
 ```
 
-En el primer gráfico, que muestra las posiciones iniciales de las jugadas según su resultado (`éxito = 1` y `no éxito = 0`), se observa una diferencia clara en la concentración de las jugadas exitosas y no exitosas. Las jugadas exitosas tienden a comenzar más frecuentemente en la **zona central alta de la cancha** (coordenada X entre 80 y 120, Y entre 40 y 60), lo que sugiere que iniciar jugadas en posiciones cercanas al arco rival incrementa la probabilidad de éxito. En contraste, las jugadas no exitosas parecen distribuirse de manera más homogénea en el campo, con una ligera concentración en la **zona central y baja** de la cancha. A su vez las jugadas no exitosas tienen un mayor concentracion en las bandas de la cancha, lo que sugiere que las posiciones iniciales en estas zonas son menos probables de ser éxitos.
+En el primer gráfico, que muestra las posiciones iniciales de las jugadas según su resultado (`éxito = 1` y `no éxito = 0`), se observa una diferencia clara en la concentración de las jugadas exitosas y no exitosas. Las jugadas exitosas tienden a comenzar más frecuentemente en la **zona central alta de la cancha** (coordenada X entre 80 y 120, Y entre 40 y 60), lo que sugiere que iniciar jugadas en posiciones cercanas al arco rival incrementa la probabilidad de éxito. En contraste, las jugadas no exitosas parecen distribuirse de manera más homogénea en el campo, con una ligera concentración en la **zona central y baja** de la cancha. A su vez las jugadas no exitosas tienen un mayor concentración en las bandas de la cancha, lo que sugiere que las posiciones iniciales en estas zonas son menos probables de ser éxitos.
 
 ### Errores del modelo en el testeo
 
@@ -1168,7 +1168,7 @@ En el segundo gráfico, se observa que la mayor cantidad de errores del modelo o
 - Para **jugadas exitosas**, los errores parecen estar distribuidos de forma más uniforme a lo largo del campo.\
 - Para **jugadas no exitosas**, los errores se concentran principalmente en las **zonas cercanas al área rival**. Esto indica que el modelo tiende a clasificar como exitosas jugadas no exitosas que ocurren cerca del área, es decir, **lo que más le cuesta al modelo es identificar correctamente las jugadas no exitosas en posiciones avanzadas**.
 
-## Distriubución de posiciones finales
+## Distribución de posiciones finales
 
 ```{r}
 df  %>% mutate(x_fin = 125 - x_fin, x_inicio = 125 - x_inicio) %>%
@@ -1325,7 +1325,7 @@ Los resultados son similares para los dos mundiales. No se observan equipos con 
 temp  %>% ggplot(aes(x = mundial , y = error)) + geom_boxplot(fill = "skyblue") + labs(y = "% error por equipo", x = "Mundial" , title = "Error por equipo por mundial") + theme_bw() 
 ```
 
-Aunque hay una menor varianza en los errores del mundial masculino, si lo vemos en la escala de errores no parece una diferencia muy grande. Las medianas son similares , no parece que se equivoque más en un mudnial que en otro. La diferencia en varianza puede deberse a un estilo de juego más variado en el mundial femenino , que el modelo no puede capturar del todo (de todas formas el error es pequeño).
+Aunque hay una menor varianza en los errores del mundial masculino, si lo vemos en la escala de errores no parece una diferencia muy grande. Las medianas son similares , no parece que se equivoque más en un mundial que en otro. La diferencia en varianza puede deberse a un estilo de juego más variado en el mundial femenino , que el modelo no puede capturar del todo (de todas formas el error es pequeño).
 
 ```{r}
 temp  %>% ggplot(aes(x = Ranking, y = error)) + geom_point() + labs(y = "Erorr", x = "Ranking")  +
@@ -1335,7 +1335,7 @@ temp  %>% ggplot(aes(x = Ranking, y = error)) + geom_point() + labs(y = "Erorr",
    labs(title = "Error por equipo por mundial")
 ```
 
-Llama la atencion como los equipo con un ranking mayor(peorres) tienene un error mayor. Pareceria que a un mejor nivel de juego el modelo puede ser más preciso. De todas formas esta relación no parece ser muy fuerte.
+Llama la atención como los equipo con un ranking mayor (perores) tienen un error mayor. Parecería que a un mejor nivel de juego el modelo puede ser más preciso. De todas formas esta relación no parece ser muy fuerte.
 
 ```{r}
 temp  %>% ggplot(aes(x = cant, y = error)) + geom_point() + 
@@ -1347,7 +1347,7 @@ temp  %>% ggplot(aes(x = cant, y = error)) + geom_point() +
 
 Se da algo interesante que y es que hay diferencias entre los mundiales. Por un lado no parece haber una diferencia en el error a mayor cantidad de jugadas en el mundial masculino. Pero en el mundial femenino parece haber una relación negativa entre las jugadas y el error.
 
-Si observamos en detalle los equipos para los cuales el modelo menos logra predecir el éxito de las jugadas (mayor error) son Irán y Costa Rica los cuales no se destacan por tener un juega de mucha posesión (menor cantidad de tiempo la pelota que el rival en promedio) y a su vez jugaron en la fase de grupos contra equipos poderosos y con un estilo de control del juego como lo son Inglaterra, y España y Alemania respectivamente. Esto puede influir en la capacidad de predicción del modelo para dichos equipos ya que en esos partidos se espera que no hayan tenido demasiado tiempo la pelota así como que probablemente hayan tenido que optar por un juego de estilo directo lo que, como se mencionó anteriormente, puede afectar negativamente la probailidad de éxito debido a que suelen ser pases de mayor dificultad y más alejado del arco contrario.
+Si observamos en detalle los equipos para los cuales el modelo menos logra predecir el éxito de las jugadas (mayor error) son Irán y Costa Rica los cuales no se destacan por tener un juega de mucha posesión (menor cantidad de tiempo la pelota que el rival en promedio) y a su vez jugaron en la fase de grupos contra equipos poderosos y con un estilo de control del juego como lo son Inglaterra, y España y Alemania respectivamente. Esto puede influir en la capacidad de predicción del modelo para dichos equipos ya que en esos partidos se espera que no hayan tenido demasiado tiempo la pelota así como que probablemente hayan tenido que optar por un juego de estilo directo lo que, como se mencionó anteriormente, puede afectar negativamente la probabilidad de éxito debido a que suelen ser pases de mayor dificultad y más alejado del arco contrario.
 
 ```{r}
 df %>% 
@@ -1532,4 +1532,4 @@ temp %>%
   theme_bw()
 ```
 
-Por otra parte, para el modelo femenino vemos que los porcentajes de error en este modelo particular se reducen cuando lo observamos por equipo siendo Filipinas y Suiza los de mayor error (0.12 y 0.07 respectivamente) pero cayendo considerablemente respecto de los 2 equipos de mayor error en el modelo particual masculino: Costa Rica y Ecuador con 0.32% y 0.28 respectivamente.
+Por otra parte, para el modelo femenino vemos que los porcentajes de error en este modelo particular se reducen cuando lo observamos por equipo siendo Filipinas y Suiza los de mayor error (0.12 y 0.07 respectivamente) pero cayendo considerablemente respecto de los 2 equipos de mayor error en el modelo particular masculino: Costa Rica y Ecuador con 0.32% y 0.28 respectivamente.

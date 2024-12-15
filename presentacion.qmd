@@ -1,0 +1,1251 @@
+---
+title: "Entrega Final"
+format:
+  revealjs:
+    embed-resources: true
+author: "Martín Grau Pérez , Lucca Frachelle"
+date: "`r Sys.Date()`"
+execute:
+  echo: false
+  message: false
+  warning: false
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(remotes)
+library(devtools)
+library(here)
+library(readxl)
+setwd(here())
+#library(StatsBombR)
+library(patchwork)
+library(ggcorrplot)
+library(gridExtra)
+library(tidymodels)
+library(agua)
+library(h2o)
+library(knitr)
+library(rpart.plot)
+library(yardstick)
+library(xgboost)
+library(lightgbm)
+library(baguette) 
+library(bonsai)
+library(gt)
+library(vip)
+library(doParallel)
+
+Matches<-readRDS("data/partidos_mundial2022.rds")
+Matches_2023<-readRDS("data/partidos_mundialfem2023.rds")
+d<-readRDS("data/partidos_mundial_COMPLETO2022.rds") 
+d_mundialfem<-readRDS("data/data_mundial2023.rds") %>% 
+  mutate(possession_team.name=str_extract(possession_team.name, ".*?(?= Women's)"),
+         team.name=str_extract(team.name, ".*?(?= Women's)"))
+eventos_irrelevantes<-c(5,18,19,24,26,27,34,35,36,40,41)
+
+source("data/funciones creadas.R")
+baseM<-read_rds("data/baseM.rds")
+trayM<-read_rds("data/trayM.rds")
+baseF<-read_rds("data/baseF.rds")
+trayF<-read_rds("data/trayF.rds")
+lineas <- data.frame(
+  x = c(0, 0, 0, 120, 60, 0, 0, 18, 102, 102, 102, 0, 0, 6, 114, 114, 114),
+  xend = c(120, 120, 0, 120, 60, 18, 18, 18, 120, 120, 102, 6, 6, 6, 120, 120, 114),
+  y = c(0, 80, 0, 0, 0, 18, 62, 18, 18, 62, 18, 30, 50, 30, 30, 50, 30),
+  yend = c(0, 80, 80, 80, 80, 18, 62, 62, 18, 62, 62, 30, 50, 50, 30, 50, 50))
+
+```
+
+## Cantidad de Eventos
+```{r,echo=FALSE,message=FALSE,warning=FALSE}
+
+g2<-d %>%
+ group_by(type.name, match_id) %>%
+ summarise(n = n()) %>%
+ ungroup() %>%
+ group_by(type.name) %>%
+ summarise(mediana = round(median(n))) %>%
+  filter(type.name %in% c("Pass","Ball Receipt*","Carry","Shot","Pressure","Ball Recovery","Duel","Clearance","Block","Goal Keeper")) %>% 
+ #top_n(15, wt = mediana) %>%  
+ mutate(type.name = fct_reorder(type.name, mediana, .desc = TRUE)) %>%
+ ggplot(aes(x = type.name, y = mediana)) + 
+ geom_col() + 
+ labs(x = "tipo evento", y = "mediana por partido")+theme_bw()+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+
+g2
+```
+
+
+```{r descr pos,echo=FALSE}
+g3<-d %>% mutate(mundial='M') %>% bind_rows(mutate(d_mundialfem,mundial='F')) %>% 
+    filter(period<5 & !type.id %in% eventos_irrelevantes)  %>%
+    group_by(mundial,match_id, possession) %>%
+    summarise() %>% 
+    count(match_id) %>% ungroup() %>% ggplot()+geom_boxplot(aes(mundial,n,fill=mundial))+labs(y='Posesiones por partido',x='Mundial')+
+  scale_fill_brewer(palette="Set1")
+
+```
+
+## Posiciones y pases por partido según mundial
+```{r descr pases,fig.cap="dispersión posesiones y pases por partido según mundial",echo=FALSE,warning=FALSE,message=FALSE}
+g4<-d %>% mutate(mundial='M') %>% bind_rows(mutate(d_mundialfem,mundial='F')) %>% 
+    filter(period<5 & !type.id %in% eventos_irrelevantes & type.id==30)  %>%
+    group_by(mundial,match_id) %>%
+    summarise(n=n()) %>%  ungroup() %>% ggplot()+geom_boxplot(aes(mundial,n,fill=mundial))+labs(y='Pases por partido',x='Mundial')+
+  scale_fill_brewer(palette="Set1")
+
+g8<-d %>% mutate(mundial='M') %>% bind_rows(mutate(d_mundialfem,mundial='F')) %>% 
+    filter(period<5 & !type.id %in% eventos_irrelevantes & type.id==43)  %>%
+    group_by(mundial,match_id) %>%
+    summarise(n=n()) %>%  ungroup() %>% ggplot()+geom_boxplot(aes(mundial,n,fill=mundial))+labs(y='Carries por partido',x='Mundial')+
+  scale_fill_brewer(palette="Set1")
+
+g3+g4+g8
+```
+
+## Pases exitosos por partido y posesión
+```{r}
+pases_pos_gral<-d %>% mutate(mundial='M') %>% bind_rows(mutate(d_mundialfem,mundial='F')) %>% 
+  filter(period<5 & !type.id %in% eventos_irrelevantes & type.id==30 & 
+           possession_team.name==team.name) %>% 
+  group_by(mundial,match_id, possession) %>%
+  summarise(cantidad_pases = n()) %>% 
+  ungroup() %>% group_by(mundial) %>% 
+  summarise(promedio_pases = mean(cantidad_pases)) 
+
+g5<-d %>% mutate(mundial='M') %>% bind_rows(mutate(d_mundialfem,mundial='F')) %>% 
+    filter(period<5 & !type.id %in% eventos_irrelevantes & possession_team.name==team.name & type.id==30)  %>%
+    group_by(mundial,match_id, possession) %>%
+  summarise(cantidad_pases = n()) %>% 
+  ungroup() %>% 
+  ggplot()+geom_boxplot(aes(mundial,cantidad_pases,fill=mundial))+labs(y='Pases por posesión',x='Mundial')+
+  scale_fill_brewer(palette="Set1")+
+  coord_flip()
+
+g6<-d %>% mutate(mundial='M') %>% bind_rows(mutate(d_mundialfem,mundial='F')) %>% 
+    filter(period<5 & !type.id %in% eventos_irrelevantes & possession_team.name==team.name & type.id==30& is.na(pass.outcome.name))  %>%
+    group_by(mundial,match_id) %>%
+  summarise(cantidad_pases = n()) %>% 
+  ungroup() %>% 
+  ggplot()+geom_boxplot(aes(mundial,cantidad_pases,fill=mundial))+labs(y='Pases exitosos por partido',x='Mundial')+
+  scale_fill_brewer(palette="Set1")+
+  coord_flip()
+
+g7<-d %>% mutate(mundial='M') %>% bind_rows(mutate(d_mundialfem,mundial='F')) %>% 
+    filter(period<5 & !type.id %in% eventos_irrelevantes & possession_team.name==team.name & type.id==30& is.na(pass.outcome.name))  %>%
+    group_by(mundial,match_id,possession) %>%
+  summarise(cantidad_pases = n()) %>% 
+  ungroup() %>% 
+  ggplot()+geom_boxplot(aes(mundial,cantidad_pases,fill=mundial))+labs(y='Pases exitosos por posesión',x='Mundial')+
+  scale_fill_brewer(palette="Set1")+
+  coord_flip()
+g6/g7
+
+```
+
+
+## Correlación entre las variables
+```{r correlaciones, echo=FALSE,message=FALSE,warning=FALSE,fig.cap='Correlaciones de las caracteristicas de las trayectorias'}
+trayectoriasM<-trayM %>% 
+  select(-c(timestamp,segs_corr,type.id,type.name,avance_p,avance_c,player.id,player.name)) %>% 
+  group_by(match_id,possession) %>% 
+  summarise(across(everything(), first)) %>% ungroup() %>% 
+  mutate(prom_av_p=ifelse(is.nan(prom_av_p),0,prom_av_p),
+         prom_av_t=ifelse(is.nan(prom_av_t),0,prom_av_t),
+         vel_media_p=ifelse(is.nan(vel_media_p)|is.infinite(vel_media_p),0,vel_media_p),
+         vel_media_c=ifelse(is.nan(vel_media_c)|is.infinite(vel_media_c),0,vel_media_c))
+trayectoriasF<-trayF %>% 
+  select(-c(,type.id,type.name,avance_p,avance_c,player.id,player.name)) %>% 
+  group_by(match_id,possession) %>% 
+  summarise(across(everything(), first)) %>% ungroup() %>% 
+  mutate(prom_av_p=ifelse(is.nan(prom_av_p),0,prom_av_p),
+         prom_av_t=ifelse(is.nan(prom_av_t),0,prom_av_t),
+         vel_media_p=ifelse(is.nan(vel_media_p)|is.infinite(vel_media_p),0,vel_media_p),
+         vel_media_c=ifelse(is.nan(vel_media_c)|is.infinite(vel_media_c),0,vel_media_c))
+  
+trayectoriasM %>%
+  select(tiempo, n_eventos, n_pases, n_pasesC, n_traslados, n_driblesE, prom_av_p,
+         prom_av_t, n_jugadores, n_centros, n_cdf, n_pases_arearival,
+         n_ingresos_arearival, inicia_golero, participa_golero, termina_tiro,
+         tiro, gol, zona_fin, nzonas, xG, vel_media_p, vel_media_c,
+         vert_tot, horiz_tot, termina) %>%
+  rbind(
+    trayectoriasF %>%
+      select(tiempo, n_eventos, n_pases, n_pasesC, n_traslados, n_driblesE, prom_av_p,
+             prom_av_t, n_jugadores, n_centros, n_cdf, n_pases_arearival,
+             n_ingresos_arearival, inicia_golero, participa_golero, termina_tiro,
+             tiro, gol, zona_fin, nzonas, xG, vel_media_p, vel_media_c,
+             vert_tot, horiz_tot, termina)
+  ) %>%
+  mutate(termina = ifelse(termina == "rival", 0, 1)) %>%
+  cor(method = 'spearman') %>%
+  round(4) %>%
+  ggcorrplot()
+
+```
+
+## División en zonas
+
+```{r graf zonas,echo=FALSE,fig.cap='División en zonas de la cancha',warning=FALSE,message=FALSE,fig.align='center'}
+grafz(30)
+```
+
+## Ejemplo de trayectorias
+```{r tray,echo=FALSE,warning=FALSE,message=FALSE}
+graf<-trayM %>% ungroup() %>%  group_by(possession) %>% 
+  filter(match_id==3857264 & possession==112) %>% 
+  select(match_id,possession,termina) %>% distinct() %>% 
+  inner_join(d,by=c("match_id","possession")) %>% 
+  filter((sum(type.id==30)>0|sum(type.id==43)>0) & 
+           !type.id%in% eventos_irrelevantes) %>% 
+  ungroup() %>% 
+  select(match_id,minute,second,period,possession,possession_team.name,team.name,type.name,player.name,
+         under_pressure,location.x,location.y,pass.end_location.x,pass.end_location.y,
+         carry.end_location.x,carry.end_location.y,play_pattern.name,resultado,pass.outcome.name,
+         ball_receipt.outcome.name,duel.outcome.name,dribble.outcome.name,
+         interception.outcome.name,shot.end_location.x,shot.end_location.y,shot.outcome.name,termina) %>% 
+  mutate(loc.y=80-location.y,
+         pass.end_loc.y=80-pass.end_location.y,
+         carry.end_loc.y=80-carry.end_location.y,
+         end.x=ifelse(type.name=="Pass",pass.end_location.x,ifelse(type.name=="Carry",carry.end_location.x,
+                                                              location.x)),
+         end.y=ifelse(type.name=="Pass",pass.end_loc.y,ifelse(type.name=="Carry",carry.end_loc.y,
+                                                              loc.y))) %>% mutate(exitoso=ifelse(is.na(pass.outcome.name),"si","no")) 
+
+ggplot()+geom_segment(aes(x=location.x,xend=end.x,y=loc.y,
+                          yend=end.y,color=type.name),filter(graf,possession_team.name==team.name&
+                                                               type.name%in%c("Pass","Carry")))+
+  geom_point(aes(location.x,loc.y,color=type.name),filter(graf,possession_team.name==team.name&
+                                                            !type.name%in%c("Pass","Carry","Pressure","Goal Keeper",
+                                                                            "Foul Committed","Foul Won","Miscontrol")))+
+  geom_segment(aes(x=location.x,xend=shot.end_location.x,y=loc.y,
+                   yend=80-shot.end_location.y,color=type.name),linetype = 2,filter(graf,possession_team.name==team.name&
+                                                                                                       type.name=="Shot"))+
+  geom_segment(aes(x=x,xend=xend,y=y,yend=yend),data=lineas)+
+  facet_wrap(~possession_team.name)+
+  geom_segment(aes(x=0,xend=120,y=0,yend=0))+
+geom_segment(aes(x=0,xend=120,y=80,yend=80))+
+geom_segment(aes(x=0,xend=0,y=0,yend=80))+
+geom_segment(aes(x=120,xend=120,y=0,yend=80))+
+geom_segment(aes(x=60,xend=60,y=0,yend=80))+
+geom_segment(aes(x=0,xend=120,y=62,yend=62))+
+geom_segment(aes(x=0,xend=120,y=18,yend=18))+
+geom_segment(aes(x=0,xend=120,y=30,yend=30))+
+geom_segment(aes(x=0,xend=120,y=50,yend=50))+
+geom_segment(aes(x=18,xend=18,y=0,yend=80))+
+geom_segment(aes(x=39,xend=39,y=0,yend=80))+
+geom_segment(aes(x=102,xend=102,y=0,yend=80))+
+geom_segment(aes(x=81,xend=81,y=0,yend=80)) +
+  labs(caption='Sentido del ataque de izquierda a derecha')+
+  theme(legend.position = "bottom")
+```
+
+
+```{r}
+#| output: false
+df <- read_excel("./data/trayectorias.xlsx") %>%
+  select(-c(termina, gol, tiro, termina_tiro, participa_golero)) %>%
+  mutate(exito = factor(exito, levels = c(1, 0), labels = c("1", "0")))
+
+df = df  %>% mutate(x_fin = 120 - x_fin, x_inicio = 120 - x_inicio)
+
+all_cores <- parallel::detectCores(logical = FALSE)
+registerDoParallel(cores = all_cores)
+```
+
+## Variables a usar
+```{r}
+#| echo: false
+variables_info <- data.frame(
+  Variable = c("possession","tiempo", "period", "possession_team.id", "possession_team.name", 
+               "team.name","n", "x_inicio", "y_inicio", "x_fin", "y_fin", "n_eventos", 
+               "n_pases", "n_pasesC", "n_traslados", "prom_av_p", "prom_av_t", 
+               "n_jugadores", "n_centros", "n_cdf", "n_pases_arearival", 
+               "n_ingresos_arearival", "inicia_golero", "resultado", "zona_inicio", 
+               "zona_fin", "xG", "vel_media_p", "vel_media_c","mundial","vert_tot","horiz_tot","dist.promP","dist.promC","dist.medP","dist.medC","presion","n_eq", "exito"),
+  
+  Descripcion = c("ID de la posesión","Duración en segs de la jugada", "Período del partido", "ID del equipo en posesión",
+                  "Nombre del equipo en posesión", "Nombre del equipo","Cantidad de acciones de la jugada", "Coordenada X de inicio de la jugada",
+                  "Coordenada Y de inicio de la jugada", "Coordenada X de fin de la jugada", "Coordenada Y de fin de la jugada",
+                  "Número de eventos distintos", "Número de pases", "Número de pases completados",
+                  "Número de traslados", "Promedio de avance por pase realizado", "Promedio de avance por traslado realizado",
+                  "Número de jugadores que participan en la jugada", "Cantidad de centros", "Cantidad de cambios de frente",
+                  "Número de pases dentro del área rival", "Número de ingresos al área rival",
+                  "Si la jugada inicia con el golero", "Estado del marcador al momento de la jugada",
+                  "Zona de inicio de la jugada", "Zona de fin de la jugada", "Probabilidad de gol de la jugada (Expected Goal)", 
+                  "Velocidad media de los pases", "Velocidad media de los traslados","Mundial al que pertenece el partido","Verticalidad total de la posesión","Horizaontalidad total de la posesión","Distancia promedio de los pases","Distancia promedio de los trasldos","Distancia mediana de los pases","Distancia mediana de los traslados","Cantidad de acciones que se realizan bajo presión del rival","Cantidad de acciones del equipo que tiene la posesión","Éxito (o no) de la posesión"),
+  
+  Tipo = c("Numérica", "Categórica", "Numérica", "Categórica", "Categórica", "Numérica",
+           "Numérica", "Numérica", "Numérica", "Numérica", "Numérica", "Numérica", 
+           "Numérica", "Numérica", "Numérica", "Numérica", "Numérica", "Numérica",
+           "Numérica", "Numérica", "Binaria", "Categórica", "Categórica", "Categórica", 
+           "Numérica", "Numérica", "Numérica","Númerica","Númerica","Binaria","Númerica","Númerica","Númerica","Númerica","Númerica","Númerica","Númerica","Númerica" ,"Binaria"), 
+  Rango=c("2:283","0:137.71","1:4","","","","2:146","0.4:120.5","0:79.9","0.1:120","0:79.9","1:11","0:51","0:51","0:38","-30.5:104.9","-17.4:56.9","1:17","0:3","0:4","0:3","0:2","0: no inicia golero, 1: inicia golero","'Empatando', 'Ganando','Perdiendo'","1:30","1:30","0:0.92805","-0.72:1067.5","0:2275","M='Masculino',F='Femenino'","-119.6:116.4","-79.90:79.40","0:108.08","0:62.614","0:108.06","0:62.614","0:23","1:142","0: no éxito, 1: éxito")
+)
+
+
+
+variables_info %>%
+  gt() %>%
+  tab_header(
+    title = md("**Características de las Variables para el Modelo**")
+  ) %>%
+  cols_label(
+    Variable = md("**Variable**"),
+    Descripcion = md("**Descripción**"),
+    Tipo = md("**Tipo**"),
+    Rango = md("**Rango**")
+  ) %>%
+  tab_style(
+    style = cell_borders(
+      sides = "all",
+      color = "gray",
+      weight = px(1)
+    ),
+    locations = cells_body()
+  ) %>%
+  cols_align(
+    align = "left",
+    columns = c(Variable, Descripcion)
+  ) %>%
+  cols_align(
+    align = "center",
+    columns = c(Tipo)
+  ) %>%
+  tab_options(
+    table.width = pct(100),
+    column_labels.background.color = "gray95",
+    table.border.top.width = px(3),
+    table.border.bottom.width = px(3)
+  )
+
+```
+
+# EDA
+
+
+```{r}
+#| echo: false
+df = df %>%  mutate(diff_x = x_inicio - x_fin, diff_y = y_inicio - y_fin) 
+```
+
+## Univariado
+```{r}
+#| echo: false
+df  %>% ggplot(aes( x = exito, y = diff_x)) + geom_violin(fill = "skyblue")  + labs(y = "Diferencia X" , title = "Distribución de la diferencia en X entre las jugadas exitosas y no exitosas")
+```
+
+## Univariado
+```{r}
+#| echo: false
+df  %>% ggplot(aes( x = exito, y = diff_y)) + geom_violin(fill = "skyblue") + labs(y = "Diferencia Y")
+```
+
+## Univariado
+```{r}
+#| echo: false
+df %>%
+  ggplot(aes(x = exito, y = tiempo)) +
+  geom_violin(fill = "skyblue") +
+  labs(x = "Éxito", y = "Tiempo")
+```
+
+## Univariado
+```{r}
+#| echo: false
+df  %>% ggplot(aes(x = n_pases)) + geom_histogram(bins = 20 , fill = "skyblue" , color = "black") + facet_wrap(~exito) + labs(y = "Número de pases")
+```
+
+## Univariado
+```{r}
+#| echo: false
+df  %>% ggplot(aes(x = n_pasesC)) + geom_histogram(bins = 20 , fill = "skyblue" , color = "black") + facet_wrap(~exito) + labs(y = "Número de pases completados")
+```
+
+## Univariado
+```{r}
+#| echo: false
+df  %>% ggplot(aes( x = exito, y = n_jugadores)) + geom_violin(fill = "skyblue")  + labs(y = "Número de jugadores")
+```
+
+## Univariado
+```{r}
+#| echo: false
+df  %>% ggplot(aes( x = exito, y = n_traslados)) + geom_violin(fill = "skyblue")  + labs(y = "Número de traslado")
+```
+
+## Bivariado
+```{r}
+df  %>% ggplot(aes( x = diff_x, y = diff_y)) + geom_hex() + labs(y = "Diferencia Y" ,  x = "Diferencia X" , title = "Distribución de la diferencia en Y entre las jugadas exitosas y no exitosas") + facet_wrap(~exito)
+```
+
+## Bivariado
+```{r}
+library(ggmosaic)
+df %>%
+  ggplot() +
+  geom_mosaic(aes(weight = 1, x = product(n_eventos), fill = exito)) +
+  labs(
+    title = "Distribución de posiciones iniciales de las jugadas exitosas y no exitosas",
+    x = "Posiciones iniciales",
+    y = "Éxito",
+    fill = "Éxito"
+  ) + theme_minimal() 
+```
+
+## Bivariado
+```{r}
+df  %>% ggplot(aes(x = vert_tot , y = `dist.promP`)) + geom_hex() + facet_wrap(~exito) + labs(x = "Verticalidad promedio",y = "Distancia promedio de los pases" , title = 'Verticalidad Total vs Distancia Promedio de los pases')
+```
+
+## Bivariado
+```{r}
+df %>%
+  group_by(n, exito) %>% 
+  summarise(
+    mean_ratio = mean(n_eq / n),
+    count = n(),
+    .groups = "drop"
+  ) %>%
+  ggplot(aes(x = n, y = mean_ratio, color = count)) +
+  geom_point(alpha = 0.7) +
+  facet_wrap(~exito) +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, NA)) +
+  scale_color_gradient(low = "blue", high = "red") +
+  labs(
+    x = "Número de jugadas",
+    y = "Proporción de jugadas",
+    size = "Frecuencia",
+    color = "Frecuencia",
+    title = "Relación entre jugadas y proporción jugadas equipos por éxito"
+  ) 
+```
+
+## Bivariado
+```{r}
+df %>%
+  mutate(
+    tiempo_bin_mid = floor(tiempo/10) * 10 + 5
+  ) %>%
+  group_by(tiempo_bin_mid, exito) %>%
+  summarise(
+    mean_ratio = mean(n_eventos),
+    count = n(),
+    .groups = "drop"
+  ) %>%
+  ggplot(aes(x = tiempo_bin_mid, y = mean_ratio, color = count)) +
+  geom_point(alpha = 0.7) +
+  facet_wrap(~exito) +
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 160)) + 
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 8)) +
+  scale_color_gradient(low = "blue", high = "red") +
+  labs(
+    x = "Tiempo (continuo)",
+    y = "Promedio de eventos",
+    color = "Frecuencia",
+    title = "Relación entre tiempo y promedio de eventos por éxito"
+  )
+```
+
+## Bivariado
+```{r}
+df  %>% ggplot(aes(x = tiempo, y = n)) + geom_point(alpha = 0.7) + facet_wrap(~exito) + 
+  geom_smooth(method = "lm") +
+  labs(x = "Tiempo de jugada (segs)", y = "Número de jugadas", title = "Tiempo vs Número de Jugadas")
+```
+
+
+```{r}
+#| output: false
+library(tidymodels)
+library(tidyverse)
+library(agua)
+library(h2o)
+library(readxl)
+library(knitr)
+library(rpart.plot)
+library(yardstick)
+library(tidymodels)
+library(xgboost)
+library(lightgbm)
+library(baguette) 
+library(bonsai)
+library(gt)
+library(vip)
+library(doParallel)
+library(knitr)
+library(glmnet)
+library(yardstick)
+library(vip)
+library(DALEXtra)
+library(tidymodels)
+library(readxl)
+library(doParallel)
+library(finetune)
+library(bonsai)
+library(vip)
+library(DALEXtra)
+library(here)
+
+
+df <- read_csv("./models/data.csv")  %>%
+  mutate(exito = factor(exito, levels = c(1, 0), labels = c("1", "0")))
+train <- df %>% filter(dataset == "train")
+test <- df %>% filter(dataset == "test")
+
+
+ranking<-rbind(read_excel("data/ranking fifa.xlsx",sheet = 'Fem') %>% mutate(mundial='F'),read_excel("data/ranking fifa.xlsx",sheet = 'Masc') %>% mutate(mundial='M'))
+```
+
+# Modelos
+
+## Modelos
+Se proponenen 4 modelos distintos para el problema de clasificación de la variable exito. Una lasso, un árbol, un random forest y un LightGBM. La idea es usar la lasso para entender como influyen los distintos factores en la variable exito sin perder la interpretabilidad de los resultados. Los otros dos se proponen más con la idea de predecir la variable exito usando la información que se tiene en el conjunto de datos. Se eligen estos modelos uno produce menos overfitting(random forest) y otro produce menos error en la validación(LightGBM).
+
+```{r}
+lasso = readRDS("./models/base_recipe_lasso_model.rds")
+random_forest = readRDS("./models/base_recipe_random_forest_model.rds")
+lightgbm = readRDS("./models/base_recipe_lightgbm_model.rds")
+decision_tree = readRDS("./models/base_recipe_decision_tree_model.rds")
+
+lasso_tune_results <- readRDS("./models/base_recipe_lasso_tune_results.rds")
+random_forest_tune_results <- readRDS("./models/base_recipe_random_forest_tune_results.rds")
+lightgbm_tune_results <- readRDS("./models/base_recipe_lightgbm_tune_results.rds")
+decision_tree_tune_results <- readRDS("./models/base_recipe_decision_tree_tune_results.rds")
+```
+
+## Lasso
+```{r}
+lasso %>% 
+  fit(train)  %>% 
+  extract_fit_engine()  %>% 
+  vi()  %>% head(10)  %>% 
+  ggplot(aes(x = Importance, y = reorder(Variable, Importance), fill = Sign)) +
+  geom_col() +
+  scale_x_continuous(expand = c(0, 0)) +
+  labs(y = NULL) + labs(title = "Importancia de las variables (Top 10)")
+```
+
+
+## Correlación entre las variables
+```{r}
+df  %>% ggplot(aes(x = n, y = n_eq)) + geom_point() + 
+  labs(title = "Cantidad de jugadas vs cantidad de jugadas del equipo" , y = "Cantidad de eventos del equipo", x = "Cantidad de eventos")
+```
+
+## Penalidad
+```{r}
+lasso %>% autoplot()
+```
+
+## Evolución de las métricas 
+```{r}
+lasso_tune_results %>% autoplot() 
+```
+
+## Matriz de Confusion
+```{r}
+lasso_predictions_test <- predict(lasso, new_data = test, type = "class") %>% bind_cols(test) 
+
+lasso_conf_matrix_test <- conf_mat(
+  data = lasso_predictions_test,
+  truth = exito,          
+  estimate = .pred_class  
+)
+autoplot(lasso_conf_matrix_test, type = "heatmap") +
+  labs(
+    title = "Matriz de Confusión - LASSO (Entrenamiento)",
+    x = "Clase Predicha",
+    y = "Clase Real"
+  ) +
+  theme_minimal() + scale_fill_gradient(low = "white", high = "steelblue")
+
+```
+
+## Métricas
+```{r}
+final_metrics <- metric_set(accuracy, sens, yardstick::spec, roc_auc)
+
+predict(lasso, test, type = "class") %>%
+  bind_cols(predict(lasso, test, type = "prob")) %>%
+  bind_cols(truth = test$exito) %>%
+  final_metrics(truth = truth, estimate = .pred_class, .pred_1) %>%
+  mutate(
+    metric = case_when(
+      .metric == "accuracy" ~ "Accuracy",
+      .metric == "sens" ~ "Sensitivity",
+      .metric == "spec" ~ "Specificity",
+      .metric == "roc_auc" ~ "AUC"
+    ), .estimate = round(.estimate, 3))  %>%
+  select(Metric = metric, Value = .estimate)  %>% kable()
+```
+
+## Arbol de Decisión
+```{r}
+temp = train %>% mutate(x_fin = 125 - x_fin, x_inicio = 125 - x_inicio)
+
+original_tree <- rpart(
+  formula = exito ~ ., 
+  data = temp %>% select(-c(termina, gol, tiro, termina_tiro, participa_golero,
+          xG, zona_fin, x_fin, presion, match_id,
+          possession_team.name, possession_team.id , dataset , exito_num)),
+  control = rpart.control(cp = 0) 
+
+)
+
+pruned_tree <- prune(original_tree, cp = original_tree$cptable[which(original_tree$frame$var == "<leaf>")[2] -1 , "CP"])
+
+```
+
+```{r}
+rpart.plot(
+  pruned_tree,
+  main = "Árbol Podado (Profundidad 3, Datos Sin Escalar)"
+)
+```
+
+## Evolución de las métricas
+```{r}
+autoplot(decision_tree_tune_results)
+```
+
+```{r}
+decision_tree_tune_results %>% select_best(metric = "roc_auc")  %>% select(-4)  %>% kable()
+```
+
+
+## Árbol de Decisión Final
+```{r}
+decision_tree %>% extract_fit_engine() %>% rpart.plot(main = "Árbol de Decisión Final")
+```
+
+## Matriz de Confusion
+```{r}
+tree_predictions <- predict(decision_tree, new_data = test, type = "class") %>%
+  bind_cols(test) 
+
+tree_conf_matrix <- conf_mat(
+  data = tree_predictions,
+  truth = exito,          
+  estimate = .pred_class  
+)
+
+autoplot(tree_conf_matrix, type = "heatmap") +
+  labs(
+    title = "Matriz de Confusión - Árbol de Decisión (Test)",
+    x = "Clase Predicha",
+    y = "Clase Real"
+  ) +
+  theme_minimal() + scale_fill_gradient(low = "white", high = "steelblue")
+```
+
+## Métricas
+```{r}
+final_metrics <- metric_set(accuracy, sens, yardstick::spec, roc_auc)
+
+predict(decision_tree, test, type = "class") %>%
+  bind_cols(predict(decision_tree, test, type = "prob")) %>%
+  bind_cols(truth = test$exito) %>%
+  final_metrics(truth = truth, estimate = .pred_class, .pred_1) %>%
+  mutate(
+    metric = case_when(
+      .metric == "accuracy" ~ "Accuracy",
+      .metric == "sens" ~ "Sensitivity",
+      .metric == "spec" ~ "Specificity",
+      .metric == "roc_auc" ~ "AUC"
+    ), .estimate = round(.estimate, 3))  %>% 
+  select(Metric = metric, Value = .estimate)  %>% kable()
+```
+
+
+## Random Forest
+```{r}
+autoplot(random_forest_tune_results) +
+  labs(
+    title = "Evolución de las Métricas - Random Forest",
+    x = "Hiperparámetros",
+    y = "Métrica (ROC AUC, Accuracy, etc.)"
+  ) 
+```
+
+```{r}
+random_forest_tune_results %>% select_best(metric = "roc_auc")  %>% select(-3)  %>% kable()
+```
+
+## Matriz de Confusion
+```{r}
+rf_predictions_test <- predict(random_forest, test) %>%
+  bind_cols(test)
+
+rf_conf_matrix_test <- conf_mat(
+  data = rf_predictions_test,
+  truth = exito,
+  estimate = .pred_class
+)
+
+autoplot(rf_conf_matrix_test, type = "heatmap") +
+  labs(
+    title = "Matriz de Confusión - Random Forest (Test)",
+    x = "Clase Predicha",
+    y = "Clase Real"
+  ) +
+  theme_minimal() + scale_fill_gradient(low = "white", high = "steelblue")
+```
+
+
+## Importancia de las variables
+```{r}
+random_forest %>%
+  extract_fit_engine() %>%
+  vip::vip(geom = "col", aesthetics = list(fill = "steelblue")) +
+  labs(
+    title = "Importancia de las Variables - Random Forest",
+    x = "Importancia Relativa",
+    y = "Variable"
+  ) +
+  theme_minimal()
+```
+
+
+## Métricas
+```{r}
+final_metrics <- metric_set(accuracy, sens, yardstick::spec, roc_auc)
+
+predict(random_forest, test, type = "class") %>%
+  bind_cols(predict(random_forest, test, type = "prob")) %>%
+  bind_cols(truth = test$exito) %>%
+  final_metrics(truth = truth, estimate = .pred_class, .pred_1) %>%
+  mutate(
+    metric = case_when(
+      .metric == "accuracy" ~ "Accuracy",
+      .metric == "sens" ~ "Sensitivity",
+      .metric == "spec" ~ "Specificity",
+      .metric == "roc_auc" ~ "AUC"
+    ), .estimate = round(.estimate, 3))  %>% 
+  select(Metric = metric, Value = .estimate)  %>% kable()
+```
+
+## LightGBM
+```{r}
+autoplot(lightgbm_tune_results) +
+  labs(
+    title = "Evolución de las Métricas - LightGBM",
+    x = "Hiperparámetros",
+    y = "Métrica (ROC AUC, Accuracy, etc.)"
+  ) 
+```
+
+```{r}
+lightgbm_tune_results %>% select_best(metric = "roc_auc")  %>% select(-6)  %>% kable()
+```
+
+## Matriz de Confusion
+
+```{r}
+lgbm_predictions_test <- predict(lightgbm, test) %>%
+  bind_cols(test)
+
+lgbm_conf_matrix_test <- conf_mat(
+  data = lgbm_predictions_test,
+  truth = exito,
+  estimate = .pred_class)
+
+autoplot(lgbm_conf_matrix_test, type = "heatmap") +
+  labs(
+    title = "Matriz de Confusión - LightGBM (Test)",
+    x = "Clase Predicha",
+    y = "Clase Real"
+  ) +
+  theme_minimal() + scale_fill_gradient(low = "white", high = "steelblue")
+```
+
+## Importancia de las variables
+```{r}
+lightgbm %>%
+  extract_fit_engine() %>%
+  vip::vip(geom = "col", aesthetics = list(fill = "steelblue")) +
+  labs(
+    title = "Importancia de las Variables - LightGBM",
+    x = "Importancia Relativa",
+    y = "Variable"
+  ) +
+  theme_minimal()
+```
+
+## Métricas
+```{r}
+final_metrics <- metric_set(accuracy, sens, yardstick::spec, roc_auc)
+
+predict(lightgbm, test, type = "class") %>%
+  bind_cols(predict(lightgbm, test, type = "prob")) %>%
+  bind_cols(truth = test$exito) %>%
+  final_metrics(truth = truth, estimate = .pred_class, .pred_1) %>%
+  mutate(
+    metric = case_when(
+      .metric == "accuracy" ~ "Accuracy",
+      .metric == "sens" ~ "Sensitivity",
+      .metric == "spec" ~ "Specificity",
+      .metric == "roc_auc" ~ "AUC"
+    ), .estimate = round(.estimate, 3))  %>% 
+  select(Metric = metric, Value = .estimate)  %>% kable()
+```
+
+```{r}
+lasso_predictions_training <- predict(lasso, train) %>%
+  bind_cols(train)
+
+tree_predictions <- predict(decision_tree, train) %>%
+  bind_cols(train)
+
+rf_predictions <- predict(random_forest, train) %>%
+  bind_cols(train)
+
+lgbm_predictions_train <- predict(lightgbm, train) %>% 
+  bind_cols(train)
+```
+
+## Comparación de los modelos
+
+```{r}
+final_metrics <- metric_set(accuracy, sens, yardstick::spec, roc_auc)
+
+calculate_model_metrics <- function(fit, split_data) {
+  preds <- predict(fit, new_data = split_data, type = "class") %>%
+    bind_cols(predict(fit, new_data = split_data, type = "prob")) %>%
+    bind_cols(truth = split_data$exito)
+  
+  metrics_df <- final_metrics(
+    data = preds, 
+    truth = truth,
+    estimate = .pred_class,
+    .pred_1
+  )
+  
+  return(metrics_df)
+}
+
+lasso_metrics <- calculate_model_metrics(lasso, test)
+tree_metrics <- calculate_model_metrics(decision_tree, test)
+rf_metrics <- calculate_model_metrics(random_forest, test)
+lgbm_metrics <- calculate_model_metrics(lightgbm, test)
+
+model_performance <- bind_rows(
+  Lasso = lasso_metrics,
+  `Decision Tree` = tree_metrics,
+  `Random Forest` = rf_metrics,
+  LightGBM = lgbm_metrics,
+  .id = "Model"
+) %>%
+  select(Model, .metric, .estimate) %>%
+  pivot_wider(names_from = .metric, values_from = .estimate)
+
+model_performance %>%
+  gt() %>%
+  fmt_number(
+    columns = c(accuracy, sens, spec, roc_auc),
+    decimals = 3
+  ) %>%
+  cols_label(
+    accuracy = "Accuracy",
+    sens = "Sensitivity",
+    spec = "Specificity",
+    roc_auc = "ROC AUC"
+  ) %>%
+  tab_header(
+    title = "Model Performance Metrics"
+  )
+```
+
+# Análisis del Random Forest
+
+## Distriubución de posiciones iniciales
+```{r}
+df %>% mutate(x_fin = 125 - x_fin, x_inicio = 125 - x_inicio) %>%
+  ggplot(aes(x = x_inicio, y = y_inicio)) +
+  geom_bin2d(bins = 15) +
+  scale_fill_gradient(low = "blue", high = "red") + 
+geom_segment(aes(x=0,xend=120,y=0,yend=0))+
+geom_segment(aes(x=0,xend=120,y=80,yend=80))+
+geom_segment(aes(x=0,xend=0,y=0,yend=80))+
+geom_segment(aes(x=120,xend=120,y=0,yend=80))+
+geom_segment(aes(x=60,xend=60,y=0,yend=80))+
+geom_segment(aes(x=0,xend=120,y=62,yend=62))+
+geom_segment(aes(x=0,xend=120,y=18,yend=18))+
+geom_segment(aes(x=0,xend=120,y=30,yend=30))+
+geom_segment(aes(x=0,xend=120,y=50,yend=50))+
+geom_segment(aes(x=18,xend=18,y=0,yend=80))+
+geom_segment(aes(x=39,xend=39,y=0,yend=80))+
+geom_segment(aes(x=102,xend=102,y=0,yend=80))+
+geom_segment(aes(x=81,xend=81,y=0,yend=80)) +
+theme(legend.position = "bottom") + facet_wrap(~exito) + coord_flip() + 
+  labs(title = "Posiciones de inicio segun exito", x = "Coordenada X", y = "Coordenada Y")
+```
+
+## Errores del modelo en el testeo
+```{r}
+temp = predict(random_forest, new_data = test, type = "class") %>%
+  bind_cols(predict(random_forest, new_data = test, type = "prob")) %>%
+  bind_cols(test)  %>% mutate(x_inicio = 125 - x_inicio)
+
+temp %>% filter(exito != .pred_class) %>%
+  ggplot(aes(x = x_inicio, y = y_inicio)) +
+  geom_bin2d(bins = 15) +
+  scale_fill_gradient(low = "blue", high = "red") + 
+geom_segment(aes(x=0,xend=120,y=0,yend=0))+
+geom_segment(aes(x=0,xend=120,y=80,yend=80))+
+geom_segment(aes(x=0,xend=0,y=0,yend=80))+
+geom_segment(aes(x=120,xend=120,y=0,yend=80))+
+geom_segment(aes(x=60,xend=60,y=0,yend=80))+
+geom_segment(aes(x=0,xend=120,y=62,yend=62))+
+geom_segment(aes(x=0,xend=120,y=18,yend=18))+
+geom_segment(aes(x=0,xend=120,y=30,yend=30))+
+geom_segment(aes(x=0,xend=120,y=50,yend=50))+
+geom_segment(aes(x=18,xend=18,y=0,yend=80))+
+geom_segment(aes(x=39,xend=39,y=0,yend=80))+
+geom_segment(aes(x=102,xend=102,y=0,yend=80))+
+geom_segment(aes(x=81,xend=81,y=0,yend=80)) +
+theme(legend.position = "bottom") + facet_wrap(~exito) + coord_flip() +
+  labs(title = "Errores en el testeo (Posiciones incicales) segun exito", x = "Coordenada X", y = "Coordenada Y")
+```
+
+## Distriubución de posiciones finales
+```{r}
+df  %>% mutate(x_fin = 125 - x_fin, x_inicio = 125 - x_inicio) %>%
+  ggplot(aes(x = x_fin, y = y_fin)) +
+  geom_bin2d(bins = 15) +
+  scale_fill_gradient(low = "blue", high = "red") + 
+geom_segment(aes(x=0,xend=120,y=0,yend=0))+
+geom_segment(aes(x=0,xend=120,y=80,yend=80))+
+geom_segment(aes(x=0,xend=0,y=0,yend=80))+
+geom_segment(aes(x=120,xend=120,y=0,yend=80))+
+geom_segment(aes(x=60,xend=60,y=0,yend=80))+
+geom_segment(aes(x=0,xend=120,y=62,yend=62))+
+geom_segment(aes(x=0,xend=120,y=18,yend=18))+
+geom_segment(aes(x=0,xend=120,y=30,yend=30))+
+geom_segment(aes(x=0,xend=120,y=50,yend=50))+
+geom_segment(aes(x=18,xend=18,y=0,yend=80))+
+geom_segment(aes(x=39,xend=39,y=0,yend=80))+
+geom_segment(aes(x=102,xend=102,y=0,yend=80))+
+geom_segment(aes(x=81,xend=81,y=0,yend=80)) +
+theme(legend.position = "bottom") + facet_wrap(~exito)  + coord_flip() +
+  labs(title = "Posiciones finales segun éxito", x = "Coordenada X", y = "Coordenada Y")
+```
+
+## Errores del modelo en el testeo
+
+```{r}
+temp %>% filter(exito != .pred_class) %>%
+  ggplot(aes(x = x_fin, y = y_fin)) +
+  geom_bin2d(bins = 15) +
+  scale_fill_gradient(low = "blue", high = "red") + 
+geom_segment(aes(x=0,xend=120,y=0,yend=0))+
+geom_segment(aes(x=0,xend=120,y=80,yend=80))+
+geom_segment(aes(x=0,xend=0,y=0,yend=80))+
+geom_segment(aes(x=120,xend=120,y=0,yend=80))+
+geom_segment(aes(x=60,xend=60,y=0,yend=80))+
+geom_segment(aes(x=0,xend=120,y=62,yend=62))+
+geom_segment(aes(x=0,xend=120,y=18,yend=18))+
+geom_segment(aes(x=0,xend=120,y=30,yend=30))+
+geom_segment(aes(x=0,xend=120,y=50,yend=50))+
+geom_segment(aes(x=18,xend=18,y=0,yend=80))+
+geom_segment(aes(x=39,xend=39,y=0,yend=80))+
+geom_segment(aes(x=102,xend=102,y=0,yend=80))+
+geom_segment(aes(x=81,xend=81,y=0,yend=80)) +
+theme(legend.position = "bottom") + facet_wrap(~exito) + coord_flip() +
+  labs(title = "Errores en el testeo (Posiciones finales) segun exito", x = "Coordenada X", y = "Coordenada Y")
+```
+
+
+```{r}
+train$exito_num <- as.numeric(train$exito) - 1
+
+explainer_rf <- explain_tidymodels(
+  model = random_forest,
+  data = train %>% select(-exito, -exito_num), 
+  y = train$exito_num,
+  label = "Random Forest",
+  verbose = FALSE
+)
+vip_rf <- readRDS("./models/vip_rf.rds")
+```
+
+## Interpretabilidad del RandomForest
+```{r}
+set.seed(1805)
+pdp_neventos <- model_profile(explainer_rf, N = nrow(df), variables = "n_eventos")
+
+plot(pdp_neventos) + geom_rug()
+```
+
+## Interpretabilidad del RandomForest
+```{r}
+df %>% filter(dataset=='train') %>% ggplot()+
+  geom_point(aes(vert_tot,horiz_tot,color=mundial))+
+  geom_vline(xintercept = 0,linetype='dashed')+geom_hline(yintercept = 0,linetype='dashed')+facet_wrap(~exito)+
+  scale_color_brewer(palette='Set1')
+```
+
+## Interpretabilidad del RandomForest
+```{r}
+set.seed(1805)
+pdp_horiz <- model_profile(explainer_rf, N = nrow(df), variables = "horiz_tot")
+plot(pdp_horiz) + geom_rug()
+```
+
+## Interpretabilidad del RandomForest
+```{r}
+set.seed(1805)
+pdp_xinicio <- model_profile(explainer_rf, N = nrow(df), variables = "x_inicio")
+pdp_yinicio <- model_profile(explainer_rf, N = nrow(df), variables = "y_inicio")
+x<-plot(pdp_xinicio) + geom_rug()
+y<-plot(pdp_yinicio) + geom_rug()
+x/y
+
+```
+
+## Interpretabilidad del RandomForest
+```{r}
+pdp_dist <- model_profile(explainer_rf, N = nrow(df), variables = "dist.promP")
+
+plot(pdp_dist) + geom_rug()
+```
+
+
+```{r}
+temp = predict(random_forest, new_data = test, type = "class") %>%
+  bind_cols(test) %>% mutate(exito = as.numeric(exito) - 1) %>% group_by(team.name , mundial) %>% summarise(cant = n() , error=mean(exito!=.pred_class)) %>% arrange(desc(error)) %>% 
+  left_join(ranking,by=c("team.name","mundial"))  %>% 
+  mutate(error = 1 - round(error,4)) 
+```
+
+## % error por equipo
+
+```{r}
+m = temp  %>% filter(mundial=='M') %>%
+   ggplot(aes(x = fct_reorder(team.name, error), y = error)) + geom_bar(stat = "identity" , fill = "skyblue" , color = "black") + labs(y = "% error por equipo", x = "Equipo" , title = "Error por equipo por mundial") + theme_bw() +
+  coord_flip() + 
+  geom_text(aes(label=round(error,2)),hjust= -0.05,vjust= 0.5,size=2.5) + 
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 0.27)) +
+  labs(
+    x = "Equipo",
+    y = "% error",
+    title = "Masculino"
+  )
+f = temp  %>% filter(mundial=='F') %>%
+   ggplot(aes(x = fct_reorder(team.name, error), y = error)) + geom_bar(stat = "identity" , fill = "skyblue" , color = "black") + labs(y = "% error por equipo", x = "Equipo" , title = "Error por equipo por mundial") + theme_bw() +
+  coord_flip() + 
+  geom_text(aes(label=round(error,2)),hjust= -0.05,vjust= 0.5,size=2.5) + 
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 0.30)) +
+  labs(
+    x = "Equipo",
+    y = "% error",
+    title = "Femenino"
+  )
+m + f
+```
+
+
+## Distribución de Errores
+```{r}
+temp  %>% ggplot(aes(x = mundial , y = error)) + geom_boxplot(fill = "skyblue") + labs(y = "% error por equipo", x = "Mundial" , title = "Error por equipo por mundial") + theme_bw() 
+```
+
+
+## Errores segun ranking
+```{r}
+temp  %>% ggplot(aes(x = Ranking, y = error)) + geom_point() + labs(y = "Erorr", x = "Ranking")  +
+   theme_bw()  +
+   facet_wrap(~mundial) + 
+   geom_smooth(method = "lm") +
+   labs(title = "Error por equipo por mundial")
+```
+
+## Errores segun cantidad de jugadas
+```{r}
+temp  %>% ggplot(aes(x = cant, y = error)) + geom_point() + 
+  labs(y = "Erorr", x = "Cantidad de jugadas" , title = "Error por equipo por mundial") +
+   theme_bw() +
+  facet_wrap(~mundial) + 
+  geom_smooth(method = "lm")
+```
+
+## Verticalidad total y horizontalidad total
+```{r}
+df %>% 
+  group_by(team.name,mundial) %>% 
+  summarise(v=median(vert_tot),h=median(horiz_tot),.groups = "drop") %>%
+  ggplot()+geom_point(aes(v,h,color=mundial))+
+  geom_vline(xintercept = 19.4,linetype='dashed')+
+  geom_hline(yintercept = 0.325,linetype='dashed')+
+  geom_text(aes(v,h,label=ifelse(abs(h)>3|abs(v)>25,as.character(team.name),""),color=mundial),hjust=0,vjust=0)+
+  scale_color_brewer(palette='Set1')+
+  labs(x='Verticalidad promedio',y='Horizontalidad promedio')+
+  theme_bw()
+```
+
+# Modelos por mundial
+
+Como extra se realizaron modelos segmentados por mundial, con la idea de evaluar la diferencia en el rendimiento entre los dos mundiales. Para ello, se utilizó el mismo proceso de modelado y evaluación que se detalló en el análisis de los modelos individuales. Se eligen los hiperparámetros que mejoren la curva de ROC AUC y los modelos usados fueron Random Forest y LightGBM.
+
+```{r}
+random_forest_m = readRDS("./models/recipe1_random_forest_model.rds")
+random_forest_tune_results_m = readRDS("./models/recipe1_random_forest_tune_results.rds")
+random_forest_f = readRDS("./models/recipe2_random_forest_model.rds")
+random_forest_tune_results_f = readRDS("./models/recipe2_random_forest_tune_results.rds")
+```
+
+## Importancia de las variables
+```{r}
+m = random_forest_m %>%
+  extract_fit_engine() %>%
+  vip::vip(geom = "col", aesthetics = list(fill = "steelblue")) +
+  labs(
+    title = "Masculino",
+    x = "Importancia Relativa",
+    y = "Variable"
+  ) +
+  theme_minimal()
+
+f = random_forest_f %>%
+  extract_fit_engine() %>%
+  vip::vip(geom = "col", aesthetics = list(fill = "steelblue")) +
+  labs(
+    title = "Femenino",
+    x = "Importancia Relativa",
+    y = "Variable"
+  ) +
+  theme_minimal()
+
+m + f
+```
+
+```{r}
+temp_m = predict(random_forest_m, new_data = test, type = "class") %>%
+  bind_cols(test) %>% mutate(exito = as.numeric(exito) - 1) %>% group_by(team.name , mundial) %>% summarise(cant = n() , error=mean(exito!=.pred_class)) %>% arrange(desc(error)) %>% 
+  left_join(ranking,by=c("team.name","mundial"))  %>% 
+  mutate(error = 1 - round(error,4)) 
+
+temp_f = predict(random_forest_f, new_data = test, type = "class") %>%
+  bind_cols(test) %>% mutate(exito = as.numeric(exito) - 1) %>% group_by(team.name , mundial) %>% summarise(cant = n() , error=mean(exito!=.pred_class)) %>% arrange(desc(error)) %>% 
+  left_join(ranking,by=c("team.name","mundial"))  %>% 
+  mutate(error = 1 - round(error,4))
+
+```
+
+## Horizontalidad por modelo
+```{r}
+explainer_rf_m <- explain_tidymodels(
+  model = random_forest_m,
+  data = train %>% select(-exito, -exito_num), 
+  y = train$exito_num,
+  label = "Random Forest",
+  verbose = FALSE
+)
+explainer_rf_f <- explain_tidymodels(
+  model = random_forest_f,
+  data = train %>% select(-exito, -exito_num), 
+  y = train$exito_num,
+  label = "Random Forest",
+  verbose = FALSE
+)
+pdp1 <- model_profile(explainer_rf_m, N = 5000, variables = "horiz_tot")
+pdp2 <- model_profile(explainer_rf_f, N = 5000, variables = "horiz_tot")
+x1<-plot(pdp1) + geom_rug()
+x2<-plot(pdp2) + geom_rug()
+x1/x2
+```
+
+
+## Modelo Masculino vs Modelo General
+```{r}
+temp %>%
+  filter(mundial == 'M') %>%
+  mutate(tipo = "General") %>%
+  bind_rows(
+    temp_m %>%
+      filter(mundial == 'M') %>%
+      mutate(tipo = "Particular")
+  ) %>%
+  group_by(tipo) %>%
+  mutate(team.name = fct_reorder(team.name, error)) %>%
+  ungroup() %>%
+  ggplot(aes(x = team.name, y = error)) +
+  geom_bar(stat = "identity", fill = "skyblue", color = "black") +
+  geom_text(aes(label = round(error, 2)), hjust = -0.05, vjust = 0.5, size = 2.5) +
+  coord_flip() +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 0.4)) +
+  facet_wrap(~tipo, scales = "free_y") +
+  theme_bw() +
+  labs(
+    x = "Equipo",
+    y = "% error",
+    title = "Error por equipo por mundial (Masculino)"
+  )
+
+```
+
+## Erorres por modelo
+```{r}
+temp %>%
+  filter(mundial == 'M') %>%
+  mutate(tipo = "General") %>%
+  bind_rows(
+    temp_m %>%
+      filter(mundial == 'M') %>%
+      mutate(tipo = "Particular")
+  ) %>%
+  ggplot(aes(x = mundial, y = error)) +
+  geom_boxplot(fill = "skyblue") +
+  facet_wrap(~tipo) +
+  labs(y = "% error por equipo", x = "Mundial", title = "General vs Particular (Masculino)") +
+  theme_bw()
+```
+
+
+## Modelo Femenino vs Modelo General
+```{r}
+temp %>%
+  filter(mundial == 'F') %>%
+  mutate(tipo = "General") %>%
+  bind_rows(
+    temp_f %>%
+      filter(mundial == 'F') %>%
+      mutate(tipo = "Particular")
+  ) %>%
+  group_by(tipo) %>%
+  mutate(team.name = fct_reorder(team.name, error)) %>%
+  ungroup() %>%
+  ggplot(aes(x = team.name, y = error)) +
+  geom_bar(stat = "identity", fill = "skyblue", color = "black") +
+  geom_text(aes(label = round(error, 2)), hjust = -0.05, vjust = 0.5, size = 2.5) +
+  coord_flip() +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 0.4)) +
+  facet_wrap(~tipo, scales = "free_y") +
+  theme_bw() +
+  labs(
+    x = "Equipo",
+    y = "% error",
+    title = "Error por equipo por mundial (Femenino)"
+  )
+```
+
+## Erorres por modelo
+```{r}
+temp %>%
+  filter(mundial == 'F') %>%
+  mutate(tipo = "General") %>%
+  bind_rows(
+    temp_f %>%
+      filter(mundial == 'F') %>%
+      mutate(tipo = "Particular")
+  ) %>%
+  ggplot(aes(x = mundial, y = error)) +
+  geom_boxplot(fill = "skyblue") +
+  facet_wrap(~tipo) +
+  labs(y = "% error por equipo", x = "Mundial", title = "General vs Particular (Femenino)") + 
+  theme_bw()
+```
+
+

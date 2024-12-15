@@ -447,7 +447,10 @@ variables_info %>%
 
 ```
 
-## EDA
+# EDA
+
+
+## Univariado
 
 ```{r}
 #| echo: false
@@ -466,6 +469,42 @@ df  %>% ggplot(aes( x = exito, y = diff_y)) + geom_violin(fill = "skyblue") + la
 ```
 
 En este caso el comportamiento no es diferente entre las jugadas que son exitosas y las que no.
+
+```{r}
+#| echo: false
+df %>%
+  ggplot(aes(x = exito, y = tiempo)) +
+  geom_violin(fill = "skyblue") +
+  labs(x = "Éxito", y = "Tiempo")
+```
+
+Aunque la mayoría de las jugadas tanto exitosas como no exitosas se concentran cercanas a tiempo 0 , la concentración en 0 es mucho mayor en las jugadas que no exitosas.
+
+```{r}
+#| echo: false
+df  %>% ggplot(aes(x = n_pases)) + geom_histogram(bins = 20 , fill = "skyblue" , color = "black") + facet_wrap(~exito) + labs(y = "Número de pases")
+```
+
+```{r}
+#| echo: false
+df  %>% ggplot(aes(x = n_pasesC)) + geom_histogram(bins = 20 , fill = "skyblue" , color = "black") + facet_wrap(~exito) + labs(y = "Número de pases completados")
+```
+
+Aunque los histogramas son similares, no es un detalle menor la moda de la cantidad de pases en la jugada, que es mayor en las secuencias exitosas que en las no exitosas.
+
+```{r}
+#| echo: false
+df  %>% ggplot(aes( x = exito, y = n_jugadores)) + geom_violin(fill = "skyblue")  + labs(y = "Número de jugadores")
+```
+
+```{r}
+#| echo: false
+df  %>% ggplot(aes( x = exito, y = n_traslados)) + geom_violin(fill = "skyblue")  + labs(y = "Número de traslado")
+```
+
+Tanto en la cantidad de traslados como en la cantidad de jugadores que participan en la jugada, se observa una mayor concentración de valores cercanos a 0 en las jugadas que no son exitosas.
+
+## Bivariado
 
 ```{r}
 df  %>% ggplot(aes( x = diff_x, y = diff_y)) + geom_hex() + labs(y = "Diferencia Y" ,  x = "Diferencia X" , title = "Distribución de la diferencia en Y entre las jugadas exitosas y no exitosas") + facet_wrap(~exito)
@@ -496,15 +535,7 @@ df  %>% ggplot(aes(x = vert_tot , y = `dist.promP`)) + geom_hex() + facet_wrap(~
 
 En las jugadas exitosas, se observa una mayor concentración de pases con distancias promedio moderadas (20-40) y una verticalidad más dispersa, lo que sugiere que las jugadas exitosas tienden a tener una distancio promedio ne pases menor que en las no exitosas. Aunque tanto las jugadas exitosas como las no exitosas se concentran en verticalidades positivas , esto parece natural con el deporte.
 
-```{r}
-#| echo: false
-df %>%
-  ggplot(aes(x = exito, y = tiempo)) +
-  geom_violin(fill = "skyblue") +
-  labs(x = "Éxito", y = "Tiempo")
-```
 
-Aunque la mayoría de las jugadas tanto exitosas como no exitosas se concentran cercanas a tiempo 0 , la concentración en 0 es mucho mayor en las jugadas que no exitosas.
 
 ```{r}
 df %>%
@@ -534,9 +565,9 @@ Este punto es muy interesane ya que por un lado mayor variedad de eventos mayor 
 
 ```{r}
 df %>%
-  mutate(tiempo_bin = cut(tiempo, breaks = seq(min(tiempo), max(tiempo), by = 10), include.lowest = TRUE),
-         tiempo_bin_mid = as.numeric(sub("\\((.+),.*", "\\1", tiempo_bin)) + 
-                          (as.numeric(sub(".*,(.+)\\]", "\\1", tiempo_bin)) - as.numeric(sub("\\((.+),.*", "\\1", tiempo_bin))) / 2) %>%
+  mutate(
+    tiempo_bin_mid = floor(tiempo/10) * 10 + 5
+  ) %>%
   group_by(tiempo_bin_mid, exito) %>%
   summarise(
     mean_ratio = mean(n_eventos),
@@ -546,49 +577,26 @@ df %>%
   ggplot(aes(x = tiempo_bin_mid, y = mean_ratio, color = count)) +
   geom_point(alpha = 0.7) +
   facet_wrap(~exito) +
-  scale_x_continuous(expand = c(0, 0)) +
-  scale_y_continuous(expand = c(0, 0), limits = c(0, NA)) +
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 160)) + 
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 8)) +
   scale_color_gradient(low = "blue", high = "red") +
   labs(
     x = "Tiempo (continuo)",
     y = "Promedio de eventos",
-    size = "Frecuencia",
     color = "Frecuencia",
     title = "Relación entre tiempo y promedio de eventos por éxito"
-  ) 
+  )
 ```
 
 En las jugadas exitosas, se observa un incremento constante en el promedio de eventos a medida que aumenta el tiempo, comenzando alrededor de 5 eventos y alcanzando más de 7 en los intervalos de mayor duración. Por otro lado, las jugadas no exitosas tienen un promedio de eventos más bajo, comenzando cerca de 4 y mostrando un aumento más gradual e irregular. Además, la frecuencia de jugadas (representada por el tamaño y color de los puntos) disminuye notablemente conforme el tiempo aumenta, indicando que las jugadas más largas son menos comunes en ambos casos. Estos patrones sugieren que las jugadas exitosas tienden a ser más complejas y dinámicas, involucrando un mayor número de eventos en comparación con las no exitosas.
 
 ```{r}
-df  %>% ggplot(aes(x = tiempo, y = n)) + geom_point(alpha = 0.7) + facet_wrap(~exito) + labs(x = "Tiempo de jugada (segs)", y = "Número de jugadas", title = "Tiempo vs Número de Jugadas")
+df  %>% ggplot(aes(x = tiempo, y = n)) + geom_point(alpha = 0.7) + facet_wrap(~exito) + 
+  geom_smooth(method = "lm") +
+  labs(x = "Tiempo de jugada (segs)", y = "Número de jugadas", title = "Tiempo vs Número de Jugadas")
 ```
 
 Hay una relación bastante lineal entre el tiempo de jugada y el número total de eventos.
-
-```{r}
-#| echo: false
-df  %>% ggplot(aes(x = n_pases)) + geom_histogram(bins = 20 , fill = "skyblue" , color = "black") + facet_wrap(~exito) + labs(y = "Número de pases")
-```
-
-```{r}
-#| echo: false
-df  %>% ggplot(aes(x = n_pasesC)) + geom_histogram(bins = 20 , fill = "skyblue" , color = "black") + facet_wrap(~exito) + labs(y = "Número de pases completados")
-```
-
-Aunque los histogramas son similares, no es un detalle menor la moda de la cantidad de pases en la jugada, que es mayor en las secuencias exitosas que en las no exitosas.
-
-```{r}
-#| echo: false
-df  %>% ggplot(aes( x = exito, y = n_jugadores)) + geom_violin(fill = "skyblue")  + labs(y = "Número de jugadores")
-```
-
-```{r}
-#| echo: false
-df  %>% ggplot(aes( x = exito, y = n_traslados)) + geom_violin(fill = "skyblue")  + labs(y = "Número de traslado")
-```
-
-Tanto en la cantidad de traslados como en la cantidad de jugadores que participan en la jugada, se observa una mayor concentración de valores cercanos a 0 en las jugadas que no son exitosas.
 
 ```{r,eval=FALSE}
 graf2<-trayM %>% mutate(mundial='m') %>% 
@@ -1133,8 +1141,10 @@ theme(legend.position = "bottom") + facet_wrap(~exito) + coord_flip() +
   labs(title = "Posiciones de inicio segun exito", x = "Coordenada X", y = "Coordenada Y")
 ```
 
+En el primer gráfico, que muestra las posiciones iniciales de las jugadas según su resultado (`éxito = 1` y `no éxito = 0`), se observa una diferencia clara en la concentración de las jugadas exitosas y no exitosas. Las jugadas exitosas tienden a comenzar más frecuentemente en la **zona central alta de la cancha** (coordenada X entre 80 y 120, Y entre 40 y 60), lo que sugiere que iniciar jugadas en posiciones cercanas al arco rival incrementa la probabilidad de éxito. En contraste, las jugadas no exitosas parecen distribuirse de manera más homogénea en el campo, con una ligera concentración en la **zona central y baja** de la cancha. 
+A su vez las jugadas no exitosas tienen un mayor concentracion en las bandas de la cancha, lo que sugiere que las posiciones iniciales en estas zonas son menos probables de ser éxitos.
 
-## Errores del modelo en el testeo
+### Errores del modelo en el testeo
 
 ```{r}
 temp = predict(random_forest, new_data = test, type = "class") %>%
@@ -1162,6 +1172,11 @@ theme(legend.position = "bottom") + facet_wrap(~exito) + coord_flip() +
   labs(title = "Errores en el testeo (Posiciones incicales) segun exito", x = "Coordenada X", y = "Coordenada Y")
 ```
 
+En el segundo gráfico, se observa que la mayor cantidad de errores del modelo ocurre en la **zona cercana al área rival**, lo cual no representa un problema significativo ya que es la región donde se concentran la mayoría de las jugadas. Sin embargo, al analizar en detalle los errores según el resultado de la jugada:  
+- Para **jugadas exitosas**, los errores parecen estar distribuidos de forma más uniforme a lo largo del campo.  
+- Para **jugadas no exitosas**, los errores se concentran principalmente en las **zonas cercanas al área rival**. Esto indica que el modelo tiende a clasificar como exitosas jugadas no exitosas que ocurren cerca del área, es decir, **lo que más le cuesta al modelo es identificar correctamente las jugadas no exitosas en posiciones avanzadas**.  
+
+
 ## Distriubución de posiciones finales
 
 ```{r}
@@ -1186,6 +1201,11 @@ theme(legend.position = "bottom") + facet_wrap(~exito)  + coord_flip() +
   labs(title = "Posiciones finales segun éxito", x = "Coordenada X", y = "Coordenada Y")
 ```
 
+### Distribución de Posiciones Finales  
+En el gráfico, se observa que la mayoría de las **jugadas exitosas** terminan dentro del área rival (coordenada X ≈ 120), lo cual tiene sentido.
+Por otro lado, las jugadas no exitosas tienden a finalizar en las **bandas del campo**, lo cual también resulta lógico. Estas pueden corresponder a jugadas que no tienen duración significativa, es decir, comienzan y terminan rápidamente en la misma zona (especialmente en las bandas, donde se observa una concentración de jugadas no exitosas en las posiciones iniciales). Además, por la dinámica natural del deporte, es común que las pérdidas de posesión ocurran en las bandas, donde los espacios son más reducidos y los jugadores suelen enfrentar una mayor presión defensiva.
+
+
 ### Errores del modelo en el testeo
 ```{r}
 temp %>% filter(exito != .pred_class) %>%
@@ -1208,6 +1228,12 @@ geom_segment(aes(x=81,xend=81,y=0,yend=80)) +
 theme(legend.position = "bottom") + facet_wrap(~exito) + coord_flip() +
   labs(title = "Errores en el testeo (Posiciones finales) segun exito", x = "Coordenada X", y = "Coordenada Y")
 ```
+
+### Errores del Modelo en el Testeo  
+En el gráfico de errores del modelo según las posiciones finales, no se observa un patrón claro de concentración en las zonas donde el modelo se equivoca. Los errores parecen estar distribuidos de manera dispersa tanto en las jugadas exitosas como en las no exitosas. Esto indica que el modelo no presenta un sesgo evidente hacia alguna región específica de la cancha.
+
+Sin embargo, se observa que en las jugadas no exitosas, hay algunas pequeñas acumulaciones de errores en posiciones cercanas a las bandas y a zonas intermedias del campo, lo cual puede estar relacionado con la dificultad del modelo para clasificar jugadas que finalizan en áreas menos definidas o de menor relevancia en el juego.
+
 
 ## Interpretabilidad del RandomForest
 
@@ -1345,7 +1371,9 @@ Por un lado no parece haber una diferencia en el error a mayor cantidad de jugad
 Pero en el mundial femenino parece haber una relación negativa entre las jugadas y el error.
 
 
-### Modelos por mundial
+# Modelos por mundial
+
+Como extra se realizaron modelos segmentados por mundial, con la idea de evaluar la diferencia en el rendimiento entre los dos mundiales. Para ello, se utilizó el mismo proceso de modelado y evaluación que se detalló en el análisis de los modelos individuales. Se eligen los hiperparámetros que mejoren la curva de ROC AUC y los modelos usados fueron random forest y lightgbm.
 
 ```{r}
 random_forest_m = readRDS("./models/recipe1_random_forest_model.rds")
@@ -1354,57 +1382,133 @@ random_forest_f = readRDS("./models/recipe2_random_forest_model.rds")
 random_forest_tune_results_f = readRDS("./models/recipe2_random_forest_tune_results.rds")
 ```
 
-### Visualización de la evolución de las métricas según los parámetros
-
-```{r}
-m = autoplot(random_forest_tune_results_m) +
-  labs(
-    title = "Evolución de las Métricas - Random Forest",
-    x = "Hiperparámetros",
-    y = "Métrica (ROC AUC, Accuracy, etc.)"
-  )  + theme(legend.position = "none")
-
-f = autoplot(random_forest_tune_results_f) +
-  labs(
-    title = "Evolución de las Métricas - Random Forest",
-    x = "Hiperparámetros",
-    y = "Métrica (ROC AUC, Accuracy, etc.)"
-  )  + theme(legend.position = "none")
-
-m/f
-```
-
-### Matriz de Confusion
-
-```{r}
-rf_predictions_train <- predict(random_forest, train) %>%
-  bind_cols(train)
-
-rf_conf_matrix_train <- conf_mat(
-  data = rf_predictions_train,
-  truth = exito,
-  estimate = .pred_class
-)
-
-autoplot(rf_conf_matrix_train, type = "heatmap") +
-  labs(
-    title = "Matriz de Confusión - Random Forest (Entrenamiento)",
-    x = "Clase Predicha",
-    y = "Clase Real"
-  ) +
-  theme_minimal()
-```
 
 ### Importancia de las variables
 
 ```{r}
-random_forest %>%
+m = random_forest_m %>%
   extract_fit_engine() %>%
   vip::vip(geom = "col", aesthetics = list(fill = "steelblue")) +
   labs(
-    title = "Importancia de las Variables - Random Forest",
+    title = "Masculino",
     x = "Importancia Relativa",
     y = "Variable"
   ) +
   theme_minimal()
+
+f = random_forest_f %>%
+  extract_fit_engine() %>%
+  vip::vip(geom = "col", aesthetics = list(fill = "steelblue")) +
+  labs(
+    title = "Femenino",
+    x = "Importancia Relativa",
+    y = "Variable"
+  ) +
+  theme_minimal()
+
+m + f
+```
+
+```{r}
+temp_m = predict(random_forest_m, new_data = test, type = "class") %>%
+  bind_cols(test) %>% mutate(exito = as.numeric(exito) - 1) %>% group_by(team.name , mundial) %>% summarise(cant = n() , error=mean(exito!=.pred_class)) %>% arrange(desc(error)) %>% 
+  left_join(ranking,by=c("team.name","mundial"))  %>% 
+  mutate(error = 1 - round(error,4)) 
+
+temp_f = predict(random_forest_f, new_data = test, type = "class") %>%
+  bind_cols(test) %>% mutate(exito = as.numeric(exito) - 1) %>% group_by(team.name , mundial) %>% summarise(cant = n() , error=mean(exito!=.pred_class)) %>% arrange(desc(error)) %>% 
+  left_join(ranking,by=c("team.name","mundial"))  %>% 
+  mutate(error = 1 - round(error,4))
+
+```
+
+### Modelo Masculuno vs modelo general
+```{r}
+temp %>%
+  filter(mundial == 'M') %>%
+  mutate(tipo = "General") %>%
+  bind_rows(
+    temp_m %>%
+      filter(mundial == 'M') %>%
+      mutate(tipo = "Particular")
+  ) %>%
+  group_by(tipo) %>%
+  mutate(team.name = fct_reorder(team.name, error)) %>%
+  ungroup() %>%
+  ggplot(aes(x = team.name, y = error)) +
+  geom_bar(stat = "identity", fill = "skyblue", color = "black") +
+  geom_text(aes(label = round(error, 2)), hjust = -0.05, vjust = 0.5, size = 2.5) +
+  coord_flip() +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 0.4)) +
+  facet_wrap(~tipo, scales = "free_y") +
+  theme_bw() +
+  labs(
+    x = "Equipo",
+    y = "% error",
+    title = "Error por equipo por mundial (Masculino)"
+  )
+
+```
+
+
+```{r}
+temp %>%
+  filter(mundial == 'M') %>%
+  mutate(tipo = "General") %>%
+  bind_rows(
+    temp_m %>%
+      filter(mundial == 'M') %>%
+      mutate(tipo = "Particular")
+  ) %>%
+  ggplot(aes(x = mundial, y = error)) +
+  geom_boxplot(fill = "skyblue") +
+  facet_wrap(~tipo) +
+  labs(y = "% error por equipo", x = "Mundial", title = "General vs Particular (Masculino)") +
+  theme_bw()
+```
+
+
+### Modelo Femenino vs modelo general
+
+```{r}
+temp %>%
+  filter(mundial == 'F') %>%
+  mutate(tipo = "General") %>%
+  bind_rows(
+    temp_f %>%
+      filter(mundial == 'F') %>%
+      mutate(tipo = "Particular")
+  ) %>%
+  group_by(tipo) %>%
+  mutate(team.name = fct_reorder(team.name, error)) %>%
+  ungroup() %>%
+  ggplot(aes(x = team.name, y = error)) +
+  geom_bar(stat = "identity", fill = "skyblue", color = "black") +
+  geom_text(aes(label = round(error, 2)), hjust = -0.05, vjust = 0.5, size = 2.5) +
+  coord_flip() +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 0.4)) +
+  facet_wrap(~tipo, scales = "free_y") +
+  theme_bw() +
+  labs(
+    x = "Equipo",
+    y = "% error",
+    title = "Error por equipo por mundial (Femenino)"
+  )
+```
+
+
+```{r}
+temp %>%
+  filter(mundial == 'F') %>%
+  mutate(tipo = "General") %>%
+  bind_rows(
+    temp_f %>%
+      filter(mundial == 'F') %>%
+      mutate(tipo = "Particular")
+  ) %>%
+  ggplot(aes(x = mundial, y = error)) +
+  geom_boxplot(fill = "skyblue") +
+  facet_wrap(~tipo) +
+  labs(y = "% error por equipo", x = "Mundial", title = "General vs Particular (Femenino)") + 
+  theme_bw()
 ```

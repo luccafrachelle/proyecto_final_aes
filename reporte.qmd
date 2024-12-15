@@ -632,7 +632,6 @@ graf2 %>%
 
 ```
 
-
 ```{r}
 #| output: false
 library(tidymodels)
@@ -719,6 +718,7 @@ lasso %>% autoplot()
 ```
 
 Las tres variables mas importantes estan relacionadas con la cantidad de eventos. Lo que no llama la atención ya que condice con lo que se vio en el EDA
+
 ```{r}
 lasso_tune_results %>% autoplot() 
 ```
@@ -762,8 +762,6 @@ predict(lasso, test, type = "class") %>%
   select(Metric = metric, Value = .estimate)  %>% kable()
 ```
 
-
-
 ## Arbol de Decisión
 
 ```{r}
@@ -784,19 +782,19 @@ rpart.plot(
 )
 ```
 
-Como primer idea se ajusta un arbol relativamente chico con la idea de ver como estan interactuando las variables. Como se puede observan con una profundidad bastante chica logra sperar las jugadas exitosas de loas que no. 
+Como primer idea se ajusta un arbol relativamente chico con la idea de ver como estan interactuando las variables. Como se puede observan con una profundidad bastante chica logra sperar las jugadas exitosas de loas que no.
 
 Este arbol chico no deja algunas cosas intersantes para resaltar:
 
-- El árbol de decisión inicia evaluando la variable `n_eventos`, que es el factor principal para predecir el resultado. Si `n_eventos` es mayor o igual a 6, se toma la rama izquierda; de lo contrario, la derecha.
+-   El árbol de decisión inicia evaluando la variable `n_eventos`, que es el factor principal para predecir el resultado. Si `n_eventos` es mayor o igual a 6, se toma la rama izquierda; de lo contrario, la derecha.
 
-- En la rama izquierda (`n_eventos >= 6`), el siguiente factor es `nzonas`. Cuando `nzonas` es mayor o igual a 3, aumenta la probabilidad de éxito (`1`). Si es menor, la probabilidad de éxito disminuye.
+-   En la rama izquierda (`n_eventos >= 6`), el siguiente factor es `nzonas`. Cuando `nzonas` es mayor o igual a 3, aumenta la probabilidad de éxito (`1`). Si es menor, la probabilidad de éxito disminuye.
 
-- En la rama derecha (`n_eventos < 6`), el modelo considera `vert_tot`. Si `vert_tot >= 50`, se evalúa `dist.promP`, donde valores menores a 2.8 aumentan la probabilidad de éxito.
+-   En la rama derecha (`n_eventos < 6`), el modelo considera `vert_tot`. Si `vert_tot >= 50`, se evalúa `dist.promP`, donde valores menores a 2.8 aumentan la probabilidad de éxito.
 
-- Si `vert_tot < 50`, se analiza nuevamente `n_eventos`. Si es mayor o igual a 4, la probabilidad de éxito depende de `vert_tot < -42`; de lo contrario, la probabilidad de fracaso (`0`) aumenta.
+-   Si `vert_tot < 50`, se analiza nuevamente `n_eventos`. Si es mayor o igual a 4, la probabilidad de éxito depende de `vert_tot < -42`; de lo contrario, la probabilidad de fracaso (`0`) aumenta.
 
-- Las variables clave en el modelo son `n_eventos`, `vert_tot`, `nzonas`, y `dist.promP`, con interacciones específicas que combinan estos factores para predecir el resultado.
+-   Las variables clave en el modelo son `n_eventos`, `vert_tot`, `nzonas`, y `dist.promP`, con interacciones específicas que combinan estos factores para predecir el resultado.
 
 Luego de esto se tunea el modelo para obtener mejores hiperparámetros y se ajusta de nuevo. Como resultado, se obtiene un árbol de decisión más profundo que permite predecir mejor el resultado de las jugadas.
 
@@ -813,6 +811,7 @@ decision_tree_tune_results %>% select_best(metric = "roc_auc")  %>% select(-4)  
 La elección de los hiperparámetros se eligieron tommando en cuenta la curva de ROC AUC.
 
 ### Árbol de Decisión Final
+
 ```{r}
 decision_tree %>% extract_fit_engine() %>% rpart.plot(main = "Árbol de Decisión Final")
 ```
@@ -839,6 +838,7 @@ autoplot(tree_conf_matrix, type = "heatmap") +
 ```
 
 Se observa que el árbol mejora un poco la performance respecto al la lasso. Sobretodo por que captura interacciones que no se pueden capturar en un modelo lineal.
+
 ```{r}
 final_metrics <- metric_set(accuracy, sens, yardstick::spec, roc_auc)
 
@@ -869,8 +869,7 @@ autoplot(random_forest_tune_results) +
   ) 
 ```
 
-De igual manera, se eligen los hiperparámetros que mejoren la curva de ROC AUC.
-La elección de los hiperparámetros es la siguiente:
+De igual manera, se eligen los hiperparámetros que mejoren la curva de ROC AUC. La elección de los hiperparámetros es la siguiente:
 
 ```{r}
 random_forest_tune_results %>% select_best(metric = "roc_auc")  %>% select(-3)  %>% kable()
@@ -897,8 +896,7 @@ autoplot(rf_conf_matrix_test, type = "heatmap") +
   theme_minimal() + scale_fill_gradient(low = "white", high = "steelblue")
 ```
 
-El modelo mejora la performance respecto al lasso y al árbol de decisión.
-### Importancia de las variables
+El modelo mejora la performance respecto al lasso y al árbol de decisión. \### Importancia de las variables
 
 ```{r}
 random_forest %>%
@@ -944,8 +942,7 @@ autoplot(lightgbm_tune_results) +
   ) 
 ```
 
-De igual manera, se eligen los hiperparámetros que mejoren la curva de ROC AUC.
-La elección de los hiperparámetros es la siguiente:
+De igual manera, se eligen los hiperparámetros que mejoren la curva de ROC AUC. La elección de los hiperparámetros es la siguiente:
 
 ```{r}
 lightgbm_tune_results %>% select_best(metric = "roc_auc")  %>% select(-6)  %>% kable()
@@ -972,6 +969,7 @@ autoplot(lgbm_conf_matrix_test, type = "heatmap") +
 ```
 
 El modelo mejora la performance respecto al resto de modelos , aunque la mejora respecto al random forest es muy pequeña.
+
 ```{r}
 lightgbm %>%
   extract_fit_engine() %>%
@@ -1002,7 +1000,6 @@ predict(lightgbm, test, type = "class") %>%
     ), .estimate = round(.estimate, 3))  %>% 
   select(Metric = metric, Value = .estimate)  %>% kable()
 ```
-
 
 ```{r}
 lasso_predictions_training <- predict(lasso, train) %>%
@@ -1069,7 +1066,6 @@ model_performance %>%
     title = "Model Performance Metrics"
   )
 ```
-
 
 ## Distriubución de posiciones iniciales
 
@@ -1202,7 +1198,7 @@ Siguiendo el enfoque de interpretabilidad se analizan las variables de mayor rel
 
 Por un lado, para la coordenada de la X vemos que la zona del área rival (x\>100) tienen una alta probabilidad de éxito, lo cual es esperable debido a que la mayoría de esas posesiones se gestan en zonas cercanas al arco rival. Sin embargo, la mayor probabilidad de *éxito* se da en posesiones que comienzan alrededor de la mitad de la cancha, es decir para coordenadas entre 50 y 60. Esto puede deberse a que en dicha zona suele haber menor densidad de jugadores rivales lo que permite gestar *mejor* la jugada y orientarle de tal manera a generar posiciones ventajosas (llegar al arco o área rival) o que el equipo contrario no logre recuperar la pelota.
 
-Por otra parte, para la Y tenemos que, en promedio, la probabilidad de éxito no varía demasiado para cada uno de los valores posibles que puede tomar dicha coordenada. Así todo, la mayor probabilidad (alrededor del 0.527) se da en el extremo derecho del terreno de juego. Esto puede interpretarse como que la mayoría de jugadas de éxito de nuestro modelo suelen arrancar en dicho sector del campo, lo que puede obedecer a estilos y patrones de juego específicos de los equipos analizados.
+Por otra parte, para la Y tenemos que, en promedio, la probabilidad de éxito no varía demasiado para cada uno de los valores posibles que puede tomar dicha coordenada. Así todo, la mayor probabilidad (alrededor del 0.527) se da en el extremo derecho del terreno de juego. Esto puede interpretarse como que la mayoría de jugadas de éxito del modelo suelen arrancar en dicho sector del campo, lo que puede obedecer a estilos y patrones de juego específicos de los equipos analizados.
 
 ```{r}
 set.seed(1805)
@@ -1217,10 +1213,12 @@ pdp_dist <- model_profile(explainer_rf, N = nrow(df), variables = "dist.promP")
 plot(pdp_dist) + geom_rug()
 ```
 
+Luego, si tomamos en cuenta la distancia promedio de los pases de la jugada tenemos que la mayoría de las observaciones se encuentran en torno a 15 y 30 unidades (medidas en coordenadas), y es dónde se encuentra, en promedio, la mayor probabilidad de *éxito*. De alguna manera, este resultado se enmarca en la línea de que pases muy largos son de mayor dificultad y pueden derivar en que el rival recupere la posesión de la pelota. A la inversa, pases más bien cortos no suelen abundar demasiado y también pueden derivar en la pérdida de la posesión debido a una mayor densidad de jugadores rivales.
+
 ```{r}
 temp = predict(random_forest, new_data = test, type = "class") %>%
   bind_cols(predict(random_forest, new_data = test, type = "prob")) %>%
-  bind_cols(test)
+  bind_cols
 
 temp = temp  %>% mutate(exito = as.numeric(exito) - 1)
 ```
@@ -1277,7 +1275,6 @@ f = autoplot(random_forest_tune_results_f) +
 
 m/f
 ```
-
 
 ### Matriz de Confusion
 

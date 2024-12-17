@@ -1,5 +1,5 @@
 ---
-title: "Entrega Final de curso"
+title: "Predicción del éxito de posesiones en fútbol mediante algoritmos de aprendizaje supervisado"
 format:
   html:
     embed-resources: true

@@ -3,19 +3,20 @@ title: "Predicción del éxito de posesiones en fútbol mediante algoritmos de a
 format:
   revealjs:
     embed-resources: true
+    language: es
     html-header: |
       <style>
         body {
-          font-size: 18px; /* Tamaño de fuente global */
+          font-size: 12px; /* Tamaño de fuente global */
         }
         h1 {
-          font-size: 36px; /* Tamaño de títulos principales */
+          font-size: 26px; /* Tamaño de títulos principales */
         }
         h2 {
-          font-size: 28px; /* Tamaño de subtítulos */
+          font-size: 18px; /* Tamaño de subtítulos */
         }
         p {
-          font-size: 18px; /* Tamaño del texto normal */
+          font-size: 48px; /* Tamaño del texto normal */
         }
       </style>
 author: "Martín Grau Pérez , Lucca Frachelle"
@@ -72,7 +73,7 @@ lineas <- data.frame(
 
 ```
 
-# Introducción
+## Introducción
 
 Se cuenta con datos de tipo *eventing* de la consultora especializada *StatsBomb (*librería `StatsBombR`*)* los cuales registran la trayectoria de la pelota para cada uno de los 64 partidos, en este caso, de los mundiales 2022 en Qatar (masculino) y 2023 en Australia/Nueva Zelanda (femenino).
 
@@ -163,9 +164,33 @@ g6/g7
 
 ```
 
-# Introducción
+## Introducción
 
 A raíz de esta información, se construyó un nuevo set de datos que resume las características de cada una de las posesiones de cada partido a través del cual se buscará predecir el éxito de cada una de esas jugadas utilizando como predictores dichas características.
+
+Dicha base nueva contiene características de las casi 10000 secuencias a estudiar. La elección de dichas características es un tanto arbitraria pero se entiende que pueden ser de valor o utilidad a la hora de describir o encontrar ciertos patrones o estilos de juego:
+
+-   coordenadas de inicio y fin de la posesión (así como las zonas de inicio y fin)
+
+-   cantidad de pases y de traslados de balón (totales y exitosos)
+
+-   cantidad de tiros, de centros, de cambios de frente, de ingresos al área rival con pelota controlado, pases dentro del área y de eventos en general realizados
+
+-   promedio de avance en el terreno según sea por pases o traslados con pelota controlada
+
+-   si la jugada es iniciada por el golero
+
+-   si el golero participa o no de la secuencia
+
+-   si termina en un tiro al arco o en gol
+
+-   velocidad promedio de la posesión teniendo en cuenta los pases y conducciones hacia adelante
+
+-   distancia promedio y mediana de la jugada
+
+-   cantidad de zonas por la que pasa la jugada
+
+-   duración (en segundos) de la posesión
 
 De esta manera, las observaciones pasan a ser las posesiones de los equipos. Cabe mencionar que en el presente trabajo, de modo de facilitar el análisis, solo se tuvieron en cuenta aquellas jugadas en las que solo realizan acciones con la pelota el equipo dueño de la posesión. Finalmente, luego de este filtrado, se disponen de 9370 jugadas (4961 para el mundial 2022 y 4409 para el de 2023).
 
@@ -183,7 +208,9 @@ La variable *éxito* se define a partir de la categorización de las jugadas:
 
 -   Si el rival no logra recuperar la pelota y comete falta
 
-Tanto las trayectorias en las que el rival logra recuperar la pelota así como aquellas que no cumplen ninguna de las 6 condiciones mencionadas se califican como *no exitosas* (variable *éxito*=0)
+Tanto las trayectorias en las que el rival logra recuperar la pelota así como aquellas que no cumplen ninguna de las 6 condiciones mencionadas se califican como *no exitosas* (variable *éxito*=0).
+
+Además, se busca estudiar si existen diferencias en el género en lo que refiere al estilo de juego y su posterior éxito o no. Para ello, se modelarán por separado las secuencias del mundial masculino y femenino.
 
 ## Variables a usar
 
@@ -254,7 +281,9 @@ variables_info %>%
 
 ```
 
-## Ejemplo de trayectorias
+## Ejemplo de trayectoria
+
+Este tipo de secuencias serán nuestras observaciones
 
 ```{r tray,echo=FALSE,warning=FALSE,message=FALSE}
 graf<-trayM %>% ungroup() %>%  group_by(possession) %>% 
@@ -321,9 +350,9 @@ registerDoParallel(cores = all_cores)
 
 ## 
 
-## Correlación entre las variables
+## 
 
-```{r correlaciones, echo=FALSE,message=FALSE,warning=FALSE,fig.cap='Correlaciones de las caracteristicas de las trayectorias'}
+```{r correlaciones, echo=FALSE,message=FALSE,warning=FALSE,fig.cap='Correlaciones de las caracteristicas de las trayectorias',eval=FALSE}
 trayectoriasM<-trayM %>% 
   select(-c(timestamp,segs_corr,type.id,type.name,avance_p,avance_c,player.id,player.name)) %>% 
   group_by(match_id,possession) %>% 
@@ -364,7 +393,7 @@ trayectoriasM %>%
 
 ## División en zonas
 
-```{r graf zonas,echo=FALSE,fig.cap='División en zonas de la cancha',warning=FALSE,message=FALSE,fig.align='center'}
+```{r graf zonas,echo=FALSE,fig.cap='División en zonas de la cancha',warning=FALSE,message=FALSE,fig.align='center',eval=FALSE}
 grafz(30)
 ```
 

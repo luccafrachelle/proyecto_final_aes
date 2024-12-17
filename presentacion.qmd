@@ -320,7 +320,7 @@ variables_info %>%
 
 ## Variables: Éxito
 
-La variable *éxito* se define a partir de la categorización de las jugadas:
+Se define la variable *éxito*:
 
 -   Si la jugada termina en un tiro al arco
 
@@ -333,6 +333,8 @@ La variable *éxito* se define a partir de la categorización de las jugadas:
 -   Si la posesión comienza en campo propio y logra llevar al tercio final con al menos 3 acciones
 
 -   Si el rival no logra recuperar la pelota y comete falta
+
+## Variables: Éxito
 
 Tanto las trayectorias en las que el rival logra recuperar la pelota así como aquellas que no cumplen ninguna de las 6 condiciones mencionadas se califican como *no exitosas* (variable *éxito*=0).
 

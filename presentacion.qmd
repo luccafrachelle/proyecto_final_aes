@@ -101,7 +101,6 @@ g2
 ```
 
 ## Dispersión por mundial
-
 ```{r descr pases,fig.cap="Dispersión posesiones y pases por partido según mundial",echo=FALSE,warning=FALSE,message=FALSE}
 g3<-d %>% mutate(mundial='M') %>% bind_rows(mutate(d_mundialfem,mundial='F')) %>% 
     filter(period<5 & !type.id %in% eventos_irrelevantes)  %>%
@@ -126,7 +125,6 @@ g3+g4+g8
 ```
 
 ## Pases exitosos por partido y posesión
-
 ```{r}
 pases_pos_gral<-d %>% mutate(mundial='M') %>% bind_rows(mutate(d_mundialfem,mundial='F')) %>% 
   filter(period<5 & !type.id %in% eventos_irrelevantes & type.id==30 & 
@@ -184,6 +182,8 @@ Dicha base nueva contiene características de las casi 10000 secuencias a estudi
 
 -   si la jugada es iniciada por el golero
 
+## Variables
+
 -   si el golero participa o no de la secuencia
 
 -   si termina en un tiro al arco o en gol
@@ -196,6 +196,7 @@ Dicha base nueva contiene características de las casi 10000 secuencias a estudi
 
 -   duración (en segundos) de la posesión
 
+## Variables
 De esta manera, las observaciones pasan a ser las posesiones de los equipos. Cabe mencionar que en el presente trabajo, de modo de facilitar el análisis, solo se tuvieron en cuenta aquellas jugadas en las que solo realizan acciones con la pelota el equipo dueño de la posesión. Finalmente, luego de este filtrado, se disponen de 9370 jugadas (4961 para el mundial 2022 y 4409 para el de 2023).
 
 ## Ejemplo de trayectoria
@@ -253,9 +254,9 @@ geom_segment(aes(x=81,xend=81,y=0,yend=80)) +
 
 ```
 
-## Variables a usar
+
 ```{r}
-#| echo: false
+
 variables_info <- data.frame(
   Variable = c("possession","tiempo", "period", "possession_team.id", "possession_team.name", 
                "team.name","n", "x_inicio", "y_inicio", "x_fin", "y_fin", "n_eventos", 
@@ -264,32 +265,118 @@ variables_info <- data.frame(
                "n_ingresos_arearival", "inicia_golero", "resultado", "zona_inicio", 
                "zona_fin", "xG", "vel_media_p", "vel_media_c","mundial","vert_tot","horiz_tot","dist.promP","dist.promC","dist.medP","dist.medC","presion","n_eq", "exito"),
   
-  Descripcion = c("ID de la posesión","Duración en segs de la jugada", "Período del partido", "ID del equipo en posesión",
-                  "Nombre del equipo en posesión", "Nombre del equipo","Cantidad de acciones de la jugada", "Coordenada X de inicio de la jugada",
+  Descripcion = c("ID de la posesion","Duracion en segs de la jugada", "Periodo del partido", "ID del equipo en posesion",
+                  "Nombre del equipo en posesion", "Nombre del equipo","Cantidad de acciones de la jugada", "Coordenada X de inicio de la jugada",
                   "Coordenada Y de inicio de la jugada", "Coordenada X de fin de la jugada", "Coordenada Y de fin de la jugada",
-                  "Número de eventos distintos", "Número de pases", "Número de pases completados",
-                  "Número de traslados", "Promedio de avance por pase realizado", "Promedio de avance por traslado realizado",
-                  "Número de jugadores que participan en la jugada", "Cantidad de centros", "Cantidad de cambios de frente",
-                  "Número de pases dentro del área rival", "Número de ingresos al área rival",
+                  "Numero de eventos distintos", "Numero de pases", "Numero de pases completados",
+                  "Numero de traslados", "Promedio de avance por pase realizado", "Promedio de avance por traslado realizado",
+                  "Numero de jugadores que participan en la jugada", "Cantidad de centros", "Cantidad de cambios de frente",
+                  "Numero de pases dentro del area rival", "Numero de ingresos al area rival",
                   "Si la jugada inicia con el golero", "Estado del marcador al momento de la jugada",
                   "Zona de inicio de la jugada", "Zona de fin de la jugada", "Probabilidad de gol de la jugada (Expected Goal)", 
-                  "Velocidad media de los pases", "Velocidad media de los traslados","Mundial al que pertenece el partido","Verticalidad total de la posesión","Horizaontalidad total de la posesión","Distancia promedio de los pases","Distancia promedio de los trasldos","Distancia mediana de los pases","Distancia mediana de los traslados","Cantidad de acciones que se realizan bajo presión del rival","Cantidad de acciones del equipo que tiene la posesión","Éxito (o no) de la posesión"),
+                  "Velocidad media de los pases", "Velocidad media de los traslados","Mundial al que pertenece el partido","Verticalidad total de la posesion","Horizontalidad total de la posesion","Distancia promedio de los pases","Distancia promedio de los traslados","Distancia mediana de los pases","Distancia mediana de los traslados","Cantidad de acciones que se realizan bajo presion del rival","Cantidad de acciones del equipo que tiene la posesion","Exito (o no) de la posesion"),
   
-  Tipo = c("Numérica", "Categórica", "Numérica", "Categórica", "Categórica", "Numérica",
-           "Numérica", "Numérica", "Numérica", "Numérica", "Numérica", "Numérica", 
-           "Numérica", "Numérica", "Numérica", "Numérica", "Numérica", "Numérica",
-           "Numérica", "Numérica", "Binaria", "Categórica", "Categórica", "Categórica", 
-           "Numérica", "Numérica", "Numérica","Númerica","Númerica","Binaria","Númerica","Númerica","Númerica","Númerica","Númerica","Númerica","Númerica","Númerica" ,"Binaria"), 
-  Rango=c("2:283","0:137.71","1:4","","","","2:146","0.4:120.5","0:79.9","0.1:120","0:79.9","1:11","0:51","0:51","0:38","-30.5:104.9","-17.4:56.9","1:17","0:3","0:4","0:3","0:2","0: no inicia golero, 1: inicia golero","'Empatando', 'Ganando','Perdiendo'","1:30","1:30","0:0.92805","-0.72:1067.5","0:2275","M='Masculino',F='Femenino'","-119.6:116.4","-79.90:79.40","0:108.08","0:62.614","0:108.06","0:62.614","0:23","1:142","0: no éxito, 1: éxito")
+  Tipo = c("Numerica", "Categorica", "Numerica", "Categorica", "Categorica", "Numerica",
+           "Numerica", "Numerica", "Numerica", "Numerica", "Numerica", "Numerica", 
+           "Numerica", "Numerica", "Numerica", "Numerica", "Numerica", "Numerica",
+           "Numerica", "Numerica", "Binaria", "Categorica", "Categorica", "Categorica", 
+           "Numerica", "Numerica", "Numerica","Numerica","Numerica","Binaria","Numerica","Numerica","Numerica","Numerica","Numerica","Numerica","Numerica","Numerica" ,"Binaria"), 
+  Rango=c("2:283","0:137.71","1:4","","","","2:146","0.4:120.5","0:79.9","0.1:120","0:79.9","1:11","0:51","0:51","0:38","-30.5:104.9","-17.4:56.9","1:17","0:3","0:4","0:3","0:2","0: no inicia golero, 1: inicia golero","'Empatando', 'Ganando','Perdiendo'","1:30","1:30","0:0.92805","-0.72:1067.5","0:2275","M='Masculino',F='Femenino'","-119.6:116.4","-79.90:79.40","0:108.08","0:62.614","0:108.06","0:62.614","0:23","1:142","0: no exito, 1: exito")
 )
-variables_info %>%
+```
+
+```{r}
+
+```
+
+## Variables a usar
+```{r}
+variables_info_chunk1 <- variables_info[1:15, ]
+variables_info_chunk1 %>%
   gt() %>%
   tab_header(
-    title = md("**Características de las Variables para el Modelo**")
+    title = md("**Caracteristicas de las Variables para el Modelo - Parte 1**")
   ) %>%
   cols_label(
     Variable = md("**Variable**"),
-    Descripcion = md("**Descripción**"),
+    Descripcion = md("**Descripcion**"),
+    Tipo = md("**Tipo**"),
+    Rango = md("**Rango**")
+  ) %>%
+  tab_style(
+    style = cell_borders(
+      sides = "all",
+      color = "gray",
+      weight = px(1)
+    ),
+    locations = cells_body()
+  ) %>%
+  cols_align(
+    align = "left",
+    columns = c(Variable, Descripcion)
+  ) %>%
+  cols_align(
+    align = "center",
+    columns = c(Tipo)
+  ) %>%
+  tab_options(
+    table.width = pct(100),
+    column_labels.background.color = "gray95",
+    table.border.top.width = px(3),
+    table.border.bottom.width = px(3)
+  )
+```
+
+
+## Variables a usar
+```{r}
+variables_info_chunk2 <- variables_info[16:30, ]
+variables_info_chunk2 %>%
+  gt() %>%
+  tab_header(
+    title = md("**Caracteristicas de las Variables para el Modelo - Parte 2**")
+  ) %>%
+  cols_label(
+    Variable = md("**Variable**"),
+    Descripcion = md("**Descripcion**"),
+    Tipo = md("**Tipo**"),
+    Rango = md("**Rango**")
+  ) %>%
+  tab_style(
+    style = cell_borders(
+      sides = "all",
+      color = "gray",
+      weight = px(1)
+    ),
+    locations = cells_body()
+  ) %>%
+  cols_align(
+    align = "left",
+    columns = c(Variable, Descripcion)
+  ) %>%
+  cols_align(
+    align = "center",
+    columns = c(Tipo)
+  ) %>%
+  tab_options(
+    table.width = pct(100),
+    column_labels.background.color = "gray95",
+    table.border.top.width = px(3),
+    table.border.bottom.width = px(3)
+  )
+```
+
+## Variables a usar
+```{r}
+variables_info_chunk3 <- variables_info[31:39, ]
+variables_info_chunk3 %>%
+  gt() %>%
+  tab_header(
+    title = md("**Caracteristicas de las Variables para el Modelo - Parte 3**")
+  ) %>%
+  cols_label(
+    Variable = md("**Variable**"),
+    Descripcion = md("**Descripcion**"),
     Tipo = md("**Tipo**"),
     Rango = md("**Rango**")
   ) %>%
@@ -398,15 +485,12 @@ trayectoriasM %>%
 ```
 
 ## División en zonas
-
-```{r graf zonas,echo=FALSE,fig.cap='División en zonas de la cancha',warning=FALSE,message=FALSE,fig.align='center',eval=FALSE}
+```{r graf zonas,echo=FALSE,fig.cap='División en zonas de la cancha',warning=FALSE,message=FALSE,fig.align='center'}
 grafz(30)
 ```
 
-## 
 
 # EDA
-
 ```{r}
 #| echo: false
 df = df %>%  mutate(diff_x = x_inicio - x_fin, diff_y = y_inicio - y_fin) 
@@ -419,12 +503,7 @@ df = df %>%  mutate(diff_x = x_inicio - x_fin, diff_y = y_inicio - y_fin)
 df  %>% ggplot(aes( x = exito, y = diff_x)) + geom_violin(fill = "skyblue")  + labs(y = "Diferencia X" , title = "Distribución de la diferencia en X entre las jugadas exitosas y no exitosas")
 ```
 
-## Univariado
 
-```{r}
-#| echo: false
-df  %>% ggplot(aes( x = exito, y = diff_y)) + geom_violin(fill = "skyblue") + labs(y = "Diferencia Y")
-```
 
 ## Univariado
 
@@ -436,12 +515,6 @@ df %>%
   labs(x = "Éxito", y = "Tiempo")
 ```
 
-## Univariado
-
-```{r}
-#| echo: false
-df  %>% ggplot(aes(x = n_pases)) + geom_histogram(bins = 20 , fill = "skyblue" , color = "black") + facet_wrap(~exito) + labs(y = "Número de pases")
-```
 
 ## Univariado
 

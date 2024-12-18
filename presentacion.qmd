@@ -101,6 +101,7 @@ g2
 ```
 
 ## Dispersión por mundial
+
 ```{r descr pases,fig.cap="Dispersión posesiones y pases por partido según mundial",echo=FALSE,warning=FALSE,message=FALSE}
 g3<-d %>% mutate(mundial='M') %>% bind_rows(mutate(d_mundialfem,mundial='F')) %>% 
     filter(period<5 & !type.id %in% eventos_irrelevantes)  %>%
@@ -125,6 +126,7 @@ g3+g4+g8
 ```
 
 ## Pases exitosos por partido y posesión
+
 ```{r}
 pases_pos_gral<-d %>% mutate(mundial='M') %>% bind_rows(mutate(d_mundialfem,mundial='F')) %>% 
   filter(period<5 & !type.id %in% eventos_irrelevantes & type.id==30 & 
@@ -197,12 +199,12 @@ Dicha base nueva contiene características de las casi 10000 secuencias a estudi
 -   duración (en segundos) de la posesión
 
 ## Variables
+
 De esta manera, las observaciones pasan a ser las posesiones de los equipos. Cabe mencionar que en el presente trabajo, de modo de facilitar el análisis, solo se tuvieron en cuenta aquellas jugadas en las que solo realizan acciones con la pelota el equipo dueño de la posesión. Finalmente, luego de este filtrado, se disponen de 9370 jugadas (4961 para el mundial 2022 y 4409 para el de 2023).
 
 ## Ejemplo de trayectoria
 
 Este tipo de secuencias serán nuestras observaciones
-
 
 ```{r tray,echo=FALSE,warning=FALSE,message=FALSE,fig.cap='Jugada de Argentina en el partido vs Polonia (masculino)'}
 graf<-trayM %>% ungroup() %>%  group_by(possession) %>% 
@@ -254,7 +256,6 @@ geom_segment(aes(x=81,xend=81,y=0,yend=80)) +
 
 ```
 
-
 ```{r}
 
 variables_info <- data.frame(
@@ -290,6 +291,7 @@ variables_info <- data.frame(
 ```
 
 ## Variables a usar
+
 ```{r}
 variables_info_chunk1 <- variables_info[1:15, ]
 variables_info_chunk1 %>%
@@ -327,8 +329,8 @@ variables_info_chunk1 %>%
   )
 ```
 
-
 ## Variables a usar
+
 ```{r}
 variables_info_chunk2 <- variables_info[16:30, ]
 variables_info_chunk2 %>%
@@ -367,6 +369,7 @@ variables_info_chunk2 %>%
 ```
 
 ## Variables a usar
+
 ```{r}
 variables_info_chunk3 <- variables_info[31:39, ]
 variables_info_chunk3 %>%
@@ -404,7 +407,6 @@ variables_info_chunk3 %>%
   )
 ```
 
-
 ## Variables: Éxito
 
 Se define la variable *éxito*:
@@ -427,10 +429,6 @@ Tanto las trayectorias en las que el rival logra recuperar la pelota así como a
 
 Además, se busca estudiar si existen diferencias en el género en lo que refiere al estilo de juego y su posterior éxito o no. Para ello, se modelarán por separado las secuencias del mundial masculino y femenino.
 
-
-
-
-
 ```{r}
 #| output: false
 #| echo: false
@@ -443,7 +441,6 @@ df = df  %>% mutate(x_fin = 120 - x_fin, x_inicio = 120 - x_inicio)
 all_cores <- parallel::detectCores(logical = FALSE)
 registerDoParallel(cores = all_cores)
 ```
- 
 
 ```{r correlaciones, echo=FALSE,message=FALSE,warning=FALSE,fig.cap='Correlaciones de las caracteristicas de las trayectorias',eval=FALSE}
 trayectoriasM<-trayM %>% 
@@ -485,12 +482,13 @@ trayectoriasM %>%
 ```
 
 ## División en zonas
+
 ```{r graf zonas,echo=FALSE,fig.cap='División en zonas de la cancha',warning=FALSE,message=FALSE,fig.align='center'}
 grafz(30)
 ```
 
-
 # EDA
+
 ```{r}
 #| echo: false
 df = df %>%  mutate(diff_x = x_inicio - x_fin, diff_y = y_inicio - y_fin) 
@@ -503,8 +501,6 @@ df = df %>%  mutate(diff_x = x_inicio - x_fin, diff_y = y_inicio - y_fin)
 df  %>% ggplot(aes( x = exito, y = diff_x)) + geom_violin(fill = "skyblue")  + labs(y = "Diferencia X" , title = "Distribución de la diferencia en X entre las jugadas exitosas y no exitosas")
 ```
 
-
-
 ## Univariado
 
 ```{r}
@@ -514,7 +510,6 @@ df %>%
   geom_violin(fill = "skyblue") +
   labs(x = "Éxito", y = "Tiempo")
 ```
-
 
 ## Univariado
 
@@ -1040,10 +1035,10 @@ model_performance %>%
 
 # Análisis del Random Forest
 
-## Distriubución de posiciones iniciales
+## Distribución de posiciones iniciales
 
 ```{r}
-df %>% mutate(x_fin = 125 - x_fin, x_inicio = 125 - x_inicio) %>%
+df %>% mutate(x_fin = 120 - x_fin, x_inicio = 120 - x_inicio) %>%
   ggplot(aes(x = x_inicio, y = y_inicio)) +
   geom_bin2d(bins = 15) +
   scale_fill_gradient(low = "blue", high = "red") + 
@@ -1092,10 +1087,10 @@ theme(legend.position = "bottom") + facet_wrap(~exito) + coord_flip() +
   labs(title = "Errores en el testeo (Posiciones incicales) segun exito", x = "Coordenada X", y = "Coordenada Y")
 ```
 
-## Distriubución de posiciones finales
+## Distribución de posiciones finales
 
 ```{r}
-df  %>% mutate(x_fin = 125 - x_fin, x_inicio = 125 - x_inicio) %>%
+df  %>% mutate(x_fin = 120 - x_fin, x_inicio = 120 - x_inicio) %>%
   ggplot(aes(x = x_fin, y = y_fin)) +
   geom_bin2d(bins = 15) +
   scale_fill_gradient(low = "blue", high = "red") + 
@@ -1153,7 +1148,11 @@ explainer_rf <- explain_tidymodels(
 vip_rf <- readRDS("./models/vip_rf.rds")
 ```
 
-## Interpretabilidad del RandomForest
+## Interpretabilidad del Random Forest: eventos
+-   Menor variedad de tipo de eventos en la jugada: mayor probabilidad de éxito
+-   Distintos eventos en una misma secuencia pueden indicar que la posesión no está asegurada del todo y por lo tanto menor probabilidad de éxito     
+
+## Interpretabilidad del Random Forest: eventos
 
 ```{r}
 set.seed(1805)
@@ -1162,7 +1161,15 @@ pdp_neventos <- model_profile(explainer_rf, N = nrow(df), variables = "n_eventos
 plot(pdp_neventos) + geom_rug()
 ```
 
-## Interpretabilidad del RandomForest
+## Interpretabilidad del Random Forest: horizontalidad y verticalidad
+
+-   A menor verticalidad de la jugada, mayor probabilidad de éxito en promedio (en valor absoluto)
+
+-   Mientras que a mayor horizontalidad, mayor probabilidad de éxito (en valor absoluto)
+
+-   Pases y conducciones de pelota hacia adelante implican un mayor riesgo de perder la posesión
+
+## Interpretabilidad del Random Forest: horizontalidad y verticalidad
 
 ```{r}
 df %>% filter(dataset=='train') %>% ggplot()+
@@ -1171,7 +1178,7 @@ df %>% filter(dataset=='train') %>% ggplot()+
   scale_color_brewer(palette='Set1')
 ```
 
-## Interpretabilidad del RandomForest
+## Interpretabilidad del Random Forest: horizontalidad y verticalidad
 
 ```{r}
 set.seed(1805)
@@ -1179,7 +1186,21 @@ pdp_horiz <- model_profile(explainer_rf, N = nrow(df), variables = "horiz_tot")
 plot(pdp_horiz) + geom_rug()
 ```
 
-## Interpretabilidad del RandomForest
+## Interpretabilidad del Random Forest: horizontalidad y verticalidad
+
+```{r}
+set.seed(1805)
+pdp_vert <- model_profile(explainer_rf, N = nrow(df), variables = "vert_tot")
+plot(pdp_vert) + geom_rug()
+```
+
+
+## Interpretabilidad del Random Forest: coordendas inicio
+-   Zona del área rival (x>100) tienen una alta probabilidad de éxito
+-   Mayor probabilidad de éxito se da en posesiones que comienzan alrededor de la mitad de la cancha: menor proporción de acciones bajo presión
+-   Para la Y tenemos que, en promedio, la probabilidad de éxito no varía demasiado
+
+## Interpretabilidad del Random Forest: coordendas inicio
 
 ```{r}
 set.seed(1805)
@@ -1191,7 +1212,11 @@ x/y
 
 ```
 
-## Interpretabilidad del RandomForest
+## Interpretabilidad del RandomForest: distancia pases
+-   Pases cortos implican un menor riesgo (entre 15 y 30)
+-   Mayor distancia de los pases, mayor riesgo de perder la pelota
+
+## Interpretabilidad del RandomForest: distancia pases
 
 ```{r}
 pdp_dist <- model_profile(explainer_rf, N = nrow(df), variables = "dist.promP")
@@ -1206,7 +1231,7 @@ temp = predict(random_forest, new_data = test, type = "class") %>%
   mutate(error = 1 - round(error,4)) 
 ```
 
-## % error por equipo
+## % Error por equipo
 
 ```{r}
 m = temp  %>% filter(mundial=='M') %>%
@@ -1231,6 +1256,12 @@ f = temp  %>% filter(mundial=='F') %>%
   )
 m + f
 ```
+
+## % Error por equipo
+-   No se logra predecir correctamente el éxito de las jugadas de Irán y Costa Rica (masculino) los cuales no se destacan por tener un juega de mucha posesión (menor cantidad de tiempo la pelota que el rival en promedio) 
+-   Jugaron en la fase de grupos contra equipos poderosos y con un estilo de control del juego 
+- Brasil, Dinamarca y Países Bajos (femenino) los equipos con mayor % de error
+
 
 ## Distribución de Errores
 
@@ -1272,6 +1303,11 @@ df %>%
   labs(x='Verticalidad promedio',y='Horizontalidad promedio')+
   theme_bw()
 ```
+
+## Verticalidad total y horizontalidad total
+- Se toman en cuenta los promedios de la horizontalidad y verticalidad total de cada una de las secuencias de cada uno de los 64 equipos
+- El modelo no logra captar correctamente el éxito de Brasil (femenino): poca verticalidad y bastante horizontalidad
+
 
 # Modelos por mundial
 
@@ -1439,3 +1475,7 @@ temp %>%
   labs(y = "% error por equipo", x = "Mundial", title = "General vs Particular (Femenino)") + 
   theme_bw()
 ```
+
+## Modelos separados vs Modelo General
+-   No se observan grandes diferencias en la importancia de las variables tanto en los modelos por separado como el unificado
+-   % de error parece ser menor en modelo general  

@@ -1533,3 +1533,23 @@ temp %>%
 ```
 
 Por otra parte, para el modelo femenino vemos que los porcentajes de error en este modelo particular se reducen cuando lo observamos por equipo siendo Filipinas y Suiza los de mayor error (0.12 y 0.07 respectivamente) pero cayendo considerablemente respecto de los 2 equipos de mayor error en el modelo particular masculino: Costa Rica y Ecuador con 0.32% y 0.28 respectivamente.
+
+
+
+**COMENTARIO:
+
+En cuanto a la estructura,  una pequeña introducción al trabajo es importante incluir donde se cuente el objetivo queneral, cuales son las preguntas a responder y porqué es interesante estudiar este problema.
+
+A lo largo del trabajo hay varios errores de tipeo que estaría bueno revisar, por ejemplo:
+“Algunos de estas acciones no refieren específicamente a situaciones de juego tales como incios y finales de partidos,” 
+
+Comentario general a lo largo del trabajo:  a las figuras les falta un título apropiado y el uso de referencias cruzadas en el texto. Además siempre que hay un gráfico deberían hacer un comentario de lo que ven, que aprenden del mismo. Por ejemplo en  el gráfico de correlaciones, que aprenden? lo que ven tiene o no sentido?
+También cuando tienen visualizaciones donde no se ven nada muy claro puede ser mejor agregar el comentario en el texto sin agregar los gráficos.
+
+Faltó poner que métrica de importancia usaron.
+Creo que quedó mal sensibilidad y especificidad (me parece que pusieron precision y negative predictive value)
+Distribución de posiciones iniciales. Creo que poner el mismo gráfico pero con el dato real está bueno para ver como captó el modelo esta distribución. Si en vez de poner el count capaz poner la proporción exito/fracaso puede estar bueno también, para contrarrestar el efecto que la cantidad de jugadas no está distribuída igual y el count se lleva todo. Si bien está el error después, creo que ayuda en la visualización. 
+El trabajo termina medio abruptamente, falta un comentarios final, hicieron muchas cosas y por eso hay cosas que quedan medio poco explicadas, pero creo que hicieron un muy buen trabajo llegaron a usar métodos interpretables y además intentaron entender donde se equivoca el modelo que es algo de  lo que hay que hacer para seguir mejorandolo.
+
+Puntos 93/100**
+
